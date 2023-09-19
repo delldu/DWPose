@@ -3,6 +3,8 @@ import torch
 import torch.nn as nn
 from  torch.nn import  functional as F
 from typing import Tuple, List
+from .cspnext import CSPNeXt
+from .rtmcc_head import RTMCCHead
 
 import pdb
 
@@ -10,7 +12,8 @@ import pdb
 class DWPose(nn.Module):
     def __init__(self):
         super(DWPose, self).__init__()
-
+        self.backbone = CSPNeXt()
+        self.head = RTMCCHead()
         self.load_weights()
 
 
@@ -27,7 +30,8 @@ class DWPose(nn.Module):
 
         if os.path.exists(checkpoint):
             print(f"Loading weight from {checkpoint} ...")
-            self.load_state_dict(torch.load(checkpoint))
+            weight = torch.load(checkpoint) 
+            self.load_state_dict(weight['state_dict'])
         else:
             print("-" * 32, "Warnning", "-" * 32)
             print(f"Weight file '{checkpoint}' not exist !!!")
