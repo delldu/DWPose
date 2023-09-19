@@ -3,7 +3,7 @@
 import torch
 import torch.nn as nn
 import todos
-from typing import Tuple
+# from typing import Tuple
 
 import pdb
 
@@ -42,7 +42,7 @@ class ConvModule(nn.Module):
 
     def forward(self, x):
         x = self.conv(x)
-        x = self.norm(x)
+        x = self.bn(x)
         x = self.activate(x)
         return x
 
@@ -256,20 +256,32 @@ class CSPNeXt(nn.Module):
             self.add_module(f'stage{i + 1}', nn.Sequential(*stage))
             self.layers.append(f'stage{i + 1}')
 
-    def forward(self, x) -> Tuple[torch.Tensor, ...]:
+    def forward(self, x):
+        # xxxx3333
+        todos.debug.output_var("cspnext input:", x)
+
         # tensor [x] size: [1, 3, 384, 288] , min: -2.1179039478302 , max: 2.552854061126709
 
-        outs = []
-        # self.layers -- ['stem', 'stage1', 'stage2', 'stage3', 'stage4']
-        for i, layer_name in enumerate(self.layers):
-            layer = getattr(self, layer_name)
-            x = layer(x)
-            if i in self.out_indices:
-                outs.append(x)
-        # self.out_indices -- (4,) ==> len(outs) == 1
-        # tensor [outs[0]] size: [1, 1024, 12, 9] , min: -0.27846455574035645 , max: 20.5461483001709
+        # outs = []
+        # for i, layer_name in enumerate(self.layers):
+        #     layer = getattr(self, layer_name)
+        #     x = layer(x)
+        #     if i in self.out_indices:
+        #         outs.append(x)
+        # # self.out_indices -- (4,) ==> len(outs) == 1
+        # # tensor [outs[0]] size: [1, 1024, 12, 9] , min: -0.27846455574035645 , max: 20.5461483001709
+        # return outs[0]
 
-        return tuple(outs)
+        # self.layers -- ['stem', 'stage1', 'stage2', 'stage3', 'stage4']
+        x = self.stem(x)
+        x = self.stage1(x)
+        x = self.stage2(x)
+        x = self.stage3(x)
+        x = self.stage4(x)
+
+        todos.debug.output_var("cspnext output", x)
+
+        return x
 
 if __name__ == '__main__':
     model = CSPNeXt()

@@ -3,19 +3,19 @@
 import warnings
 import math
 import torch
-from torch import Tensor, nn
-import numpy as np
+import torch.nn as nn
+from  torch.nn import functional as F
+# import numpy as np
 
 from typing import Tuple
+import todos
 import pdb
 
-def flip_vectors(x_labels: Tensor, y_labels: Tensor):
+def flip_vectors(x_labels, y_labels):
     """Flip instance-level labels in specific axis for test-time augmentation.
     Args:
-        x_labels (Tensor): The vector labels in x-axis to flip. Should be
-            a tensor in shape [B, C, Wx]
-        y_labels (Tensor): The vector labels in y-axis to flip. Should be
-            a tensor in shape [B, C, Wy]
+        x_labels: The vector labels in x-axis to flip. Should be in shape [B, C, Wx]
+        y_labels: The vector labels in y-axis to flip. Should be in shape [B, C, Wy]
     """
 
     flip_indices = [0, 2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 16, 15, 20, 21, 
@@ -35,55 +35,56 @@ def flip_vectors(x_labels: Tensor, y_labels: Tensor):
 
     return x_labels, y_labels
 
-def get_simcc_maximum(simcc_x: np.ndarray,
-                      simcc_y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def get_simcc_maximum(simcc_x, simcc_y) -> Tuple[torch.Tensor, torch.Tensor]:
     """Get maximum response location and value from simcc representations.
-
-    Note:
-        instance number: N
-        num_keypoints: K
-        heatmap height: H
-        heatmap width: W
-
     Args:
-        simcc_x (np.ndarray): x-axis SimCC in shape (K, Wx) or (N, K, Wx)
-        simcc_y (np.ndarray): y-axis SimCC in shape (K, Wy) or (N, K, Wy)
-
+        simcc_x: x-axis SimCC in shape (N, K, Wx)
+        simcc_y: y-axis SimCC in shape (N, K, Wy)
     Returns:
-        tuple:
-        - locs (np.ndarray): locations of maximum heatmap responses in shape
-            (K, 2) or (N, K, 2)
-        - vals (np.ndarray): values of maximum heatmap responses in shape
-            (K,) or (N, K)
+        - locs: locations of maximum heatmap responses in shape (N, K, 2)
+        - vals: values of maximum heatmap responses in shape (N, K)
     """
+    # xxxx5555
 
-    assert isinstance(simcc_x, np.ndarray), ('simcc_x should be numpy.ndarray')
-    assert isinstance(simcc_y, np.ndarray), ('simcc_y should be numpy.ndarray')
-    assert simcc_x.ndim == 2 or simcc_x.ndim == 3, (
-        f'Invalid shape {simcc_x.shape}')
-    assert simcc_y.ndim == 2 or simcc_y.ndim == 3, (
-        f'Invalid shape {simcc_y.shape}')
-    assert simcc_x.ndim == simcc_y.ndim, (
-        f'{simcc_x.shape} != {simcc_y.shape}')
+    # todos.debug.output_var("simcc_x", simcc_x)
+    # todos.debug.output_var("simcc_y", simcc_y)
 
-    # simcc_x.shape -- (1, 133, 576)
-    N, K, Wx = simcc_x.shape
+    N, K, Wx = simcc_x.size() # (1, 133, 576)
     simcc_x = simcc_x.reshape(N * K, -1)
     simcc_y = simcc_y.reshape(N * K, -1)
 
-    x_locs = np.argmax(simcc_x, axis=1)
-    y_locs = np.argmax(simcc_y, axis=1)
-    locs = np.stack((x_locs, y_locs), axis=-1).astype(np.float32)
-    max_val_x = np.amax(simcc_x, axis=1)
-    max_val_y = np.amax(simcc_y, axis=1)
+    x_vals, x_locs = torch.max(simcc_x, dim=1) # size() -- [133]
+    y_vals, y_locs = torch.max(simcc_y, dim=1) # size() -- [133]
+    locs = torch.stack((x_locs, y_locs), dim=1) # [133, 2]
+    # --------------------------------------------------------------
 
-    mask = max_val_x > max_val_y
-    max_val_x[mask] = max_val_y[mask]
-    vals = max_val_x
+    # max_val_x = torch.max(simcc_x, dim=1)
+    # max_val_y = torch.max(simcc_y, dim=1)
+
+    mask = x_vals > y_vals
+    x_vals[mask] = y_vals[mask]
+    vals = x_vals
     locs[vals <= 0.] = -1
 
     locs = locs.reshape(N, K, 2)
     vals = vals.reshape(N, K)
+
+    # todos.debug.output_var("locs", locs)
+    # todos.debug.output_var("vals", vals)
+
+    # Bad ---
+    # tensor [simcc_x] size: [1, 133, 576] , min: -0.5505505204200745 , max: 0.8369803428649902
+    # tensor [simcc_y] size: [1, 133, 768] , min: -0.39678260684013367 , max: 0.9399464130401611
+    # tensor [locs] size: [1, 133, 2] , min: 87 , max: 690
+    # tensor [vals] size: [1, 133] , min: 0.2764616310596466 , max: 0.8369803428649902
+
+
+    # OK ----------
+    # array [simcc_x] shape: (1, 133, 576) , min: -0.41311845 , max: 0.9175705
+    # array [simcc_y] shape: (1, 133, 768) , min: -0.3252464 , max: 0.90258455
+    # array [locs] shape: (1, 133, 2) , min: 265.0 , max: 509.0
+    # array [vals] shape: (1, 133) , min: 0.47906744 , max: 0.8998748
+
 
     return locs, vals
 
@@ -109,13 +110,15 @@ class SimCCLabel(nn.Module):
         super().__init__()
         self.simcc_split_ratio = simcc_split_ratio
 
-    def forward(self, simcc_x: np.ndarray, simcc_y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def forward(self, simcc_x, simcc_y) -> Tuple[torch.Tensor, torch.Tensor]:
         """Decode keypoint coordinates from SimCC representations.
         """
-        # array [simcc_x] shape: (1, 133, 576) , min: -0.41311845 , max: 0.9175705
-        # array [simcc_y] shape: (1, 133, 768) , min: -0.3252464 , max: 0.90258455
         keypoints, scores = get_simcc_maximum(simcc_x, simcc_y)
-        keypoints /= self.simcc_split_ratio # self.simcc_split_ratio -- 2.0
+        # tensor [keypoints] size: [1, 133, 2] , min: 87 , max: 690
+        # tensor [scores] size: [1, 133] , min: 0.2764616310596466 , max: 0.8369803428649902
+
+        keypoints = keypoints/self.simcc_split_ratio # self.simcc_split_ratio -- 2.0
+        # tensor [keypoints] size: [1, 133, 2] , min: 43.5 , max: 345.0
 
         return keypoints, scores
 
@@ -176,10 +179,8 @@ class RTMCCBlock(nn.Module):
         self.res_scale = Scale(in_token_dims)
         self.sqrt_s = math.sqrt(s)
 
-
     def _forward(self, inputs):
         """GAU Forward function."""
-
         x = inputs
         x = self.ln(x)
 
@@ -210,8 +211,6 @@ class RTMCCBlock(nn.Module):
         return x
 
     def forward(self, x):
-        """Forward function."""
-
         res_shortcut = x
         main_branch = self._forward(x)
         return self.res_scale(res_shortcut) + main_branch
@@ -243,7 +242,7 @@ class RTMCCHead(nn.Module):
         self.in_featuremap_size = in_featuremap_size
         self.simcc_split_ratio = simcc_split_ratio
 
-        self.decoder=SimCCLabel(simcc_split_ratio=self.simcc_split_ratio)
+        self.decoder = SimCCLabel(simcc_split_ratio=self.simcc_split_ratio)
 
         # Define SimCC layers
         flatten_dims = self.in_featuremap_size[0] * self.in_featuremap_size[1]
@@ -272,37 +271,40 @@ class RTMCCHead(nn.Module):
         self.cls_x = nn.Linear(gau_cfg['hidden_dims'], W, bias=False)
         self.cls_y = nn.Linear(gau_cfg['hidden_dims'], H, bias=False)
 
-    def forward(self, feats: Tuple[Tensor]):
+    def forward(self, feats: Tuple[torch.Tensor]):
         # TTA: flip test -> feats = [orig, flipped]
         assert isinstance(feats, list) and len(feats) == 2
-
+        # xxxx3333
         f1, f2 = feats
+        todos.debug.output_var("head input1: ", f1)
+        todos.debug.output_var("head input2: ", f1)
+
 
         pred_x, pred_y = self.forward_x(f1)
+
         pred_x_flip, pred_y_flip = self.forward_x(f2)
         pred_x_flip, pred_y_flip = flip_vectors(pred_x_flip, pred_y_flip)
 
         batch_pred_x = (pred_x + pred_x_flip) * 0.5
         batch_pred_y = (pred_y + pred_y_flip) * 0.5
 
+        # todos.debug.output_var("batch_pred_x", batch_pred_x)
+        # todos.debug.output_var("batch_pred_y", batch_pred_y)
+        # tensor [batch_pred_x] size: [1, 133, 576] , min: -0.5505505204200745 , max: 0.8369803428649902
+        # tensor [batch_pred_y] size: [1, 133, 768] , min: -0.39678260684013367 , max: 0.9399464130401611
+
+        todos.debug.output_var("head midle output1: ", batch_pred_x)
+        todos.debug.output_var("head midle output2: ", batch_pred_y)
+
+
         keypoints, scores = self.decoder(batch_pred_x, batch_pred_y)
+
+        todos.debug.output_var("head output1: ", keypoints)
+        todos.debug.output_var("head output2: ", scores)
 
         return keypoints, scores
 
-    def forward_x(self, feats: Tuple[Tensor]) -> Tuple[Tensor, Tensor]:
-        """Forward the network.
-
-        The input is the featuremap extracted by backbone and the
-        output is the simcc representation.
-
-        Args:
-            feats (Tuple[Tensor]): Multi scale feature maps.
-
-        Returns:
-            pred_x (Tensor): 1d representation of x.
-            pred_y (Tensor): 1d representation of y.
-        """
-        feats = feats[-1]
+    def forward_x(self, feats) -> Tuple[torch.Tensor, torch.Tensor]:
         feats = self.final_layer(feats)  # -> B, K, H, W
 
         # flatten the output heatmap

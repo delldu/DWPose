@@ -62,10 +62,10 @@ def get_model():
     # torch::jit::getProfilingMode() = false;
     # torch::jit::setTensorExprFuserEnabled(false);
 
-    model = torch.jit.script(model)
-    todos.data.mkdir("output")
-    if not os.path.exists("output/DWPose.torch"):
-        model.save("output/DWPose.torch")
+    # model = torch.jit.script(model)
+    # todos.data.mkdir("output")
+    # if not os.path.exists("output/DWPose.torch"):
+    #     model.save("output/DWPose.torch")
 
     return model, device
 
@@ -85,6 +85,7 @@ def predict(input_files, output_dir):
 
         image = Image.open(filename).convert("RGB")
         input_image = ToTensor()(image).unsqueeze(0).to(device)
+        input_backup = input_image.clone()
 
         with torch.no_grad():
             output_tensor = model(input_image)
@@ -92,7 +93,8 @@ def predict(input_files, output_dir):
         output_file = f"{output_dir}/{os.path.basename(filename)}"
 
         # output_tensor = draw_lines(input_image, output_tensor.cpu())
-        todos.data.save_tensor([input_image, output_tensor], output_file)
+        # todos.data.save_tensor([input_backup, output_tensor], output_file)
+        todos.data.save_tensor([input_backup], output_file)
 
     progress_bar.close()
 

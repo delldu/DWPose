@@ -11,4 +11,4 @@
 import DWPose
 import torch
 
-DWPose.predict("images/*.jpg", "output")
+DWPose.predict("images/*3.png", "output")
