@@ -1,99 +1,68 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-import math
-from typing import Tuple, Union, Dict, Optional
 
 import torch
 import torch.nn as nn
-from mmcv.cnn import ConvModule
 import todos
+
+from typing import Tuple
 
 import pdb
 
-class DepthwiseSeparableConvModule(nn.Module):
-    """Depthwise separable convolution module.
+class _BatchNormXd(nn.modules.batchnorm._BatchNorm):
+    """A general BatchNorm layer without input dimension check.
 
-    See https://arxiv.org/pdf/1704.04861.pdf for details.
-
-    This module can replace a ConvModule with the conv block replaced by two
-    conv block: depthwise conv block and pointwise conv block. The depthwise
-    conv block contains depthwise-conv/norm/activation layers. The pointwise
-    conv block contains pointwise-conv/norm/activation layers. It should be
-    noted that there will be norm/activation layer in the depthwise conv block
-    if `norm_cfg` and `act_cfg` are specified.
-
-    Args:
-        in_channels (int): Number of channels in the input feature map.
-            Same as that in ``nn._ConvNd``.
-        out_channels (int): Number of channels produced by the convolution.
-            Same as that in ``nn._ConvNd``.
-        kernel_size (int | tuple[int]): Size of the convolving kernel.
-            Same as that in ``nn._ConvNd``.
-        stride (int | tuple[int]): Stride of the convolution.
-            Same as that in ``nn._ConvNd``. Default: 1.
-        padding (int | tuple[int]): Zero-padding added to both sides of
-            the input. Same as that in ``nn._ConvNd``. Default: 0.
-        dilation (int | tuple[int]): Spacing between kernel elements.
-            Same as that in ``nn._ConvNd``. Default: 1.
-        norm_cfg (dict): Default norm config for both depthwise ConvModule and
-            pointwise ConvModule. Default: None.
-        act_cfg (dict): Default activation config for both depthwise ConvModule
-            and pointwise ConvModule. Default: dict(type='ReLU').
-        dw_norm_cfg (dict): Norm config of depthwise ConvModule. If it is
-            'default', it will be the same as `norm_cfg`. Default: 'default'.
-        dw_act_cfg (dict): Activation config of depthwise ConvModule. If it is
-            'default', it will be the same as `act_cfg`. Default: 'default'.
-        pw_norm_cfg (dict): Norm config of pointwise ConvModule. If it is
-            'default', it will be the same as `norm_cfg`. Default: 'default'.
-        pw_act_cfg (dict): Activation config of pointwise ConvModule. If it is
-            'default', it will be the same as `act_cfg`. Default: 'default'.
-        kwargs (optional): Other shared arguments for depthwise and pointwise
-            ConvModule. See ConvModule for ref.
+    Reproduced from @kapily's work:
+    (https://github.com/pytorch/pytorch/issues/41081#issuecomment-783961547)
+    The only difference between BatchNorm1d, BatchNorm2d, BatchNorm3d, etc
+    is `_check_input_dim` that is designed for tensor sanity checks.
+    The check has been bypassed in this class for the convenience of converting
+    SyncBatchNorm.
     """
 
-    def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 kernel_size: Union[int, Tuple[int, int]],
-                 stride: Union[int, Tuple[int, int]] = 1,
-                 padding: Union[int, Tuple[int, int]] = 0,
-                 dilation: Union[int, Tuple[int, int]] = 1,
-                 norm_cfg: Optional[Dict] = None,
-                 act_cfg: Dict = dict(type='ReLU'),
-                 dw_norm_cfg: Union[Dict, str] = 'default',
-                 dw_act_cfg: Union[Dict, str] = 'default',
-                 pw_norm_cfg: Union[Dict, str] = 'default',
-                 pw_act_cfg: Union[Dict, str] = 'default',
-                 **kwargs):
+    def _check_input_dim(self, input):
+        return
+
+class ConvModule(nn.Module):
+    """A conv block that bundles conv/norm/activation layers.
+    """
+    def __init__(self, in_channels, out_channels, kernel_size,
+                 stride=1, padding=0, groups=1):
         super().__init__()
-        assert 'groups' not in kwargs, 'groups should not be specified'
+        self.conv = nn.Conv2d(in_channels, out_channels, 
+            kernel_size=(kernel_size, kernel_size), 
+            stride=(stride, stride), 
+            padding=(padding, padding),
+            groups=groups, 
+            bias=False)
+        # layer = nn.SyncBatchNorm(out_channels, eps=1e-05, momentum=0.1, 
+        #     affine=True, track_running_stats=True)
+        layer = _BatchNormXd(out_channels)
 
-        # if norm/activation config of depthwise/pointwise ConvModule is not
-        # specified, use default config.
-        dw_norm_cfg = dw_norm_cfg if dw_norm_cfg != 'default' else norm_cfg  # type: ignore # noqa E501
-        dw_act_cfg = dw_act_cfg if dw_act_cfg != 'default' else act_cfg
-        pw_norm_cfg = pw_norm_cfg if pw_norm_cfg != 'default' else norm_cfg  # type: ignore # noqa E501
-        pw_act_cfg = pw_act_cfg if pw_act_cfg != 'default' else act_cfg
+        self.add_module('bn', layer)
+        self.activate = nn.SiLU(inplace=True)
 
-        # depthwise convolution
-        self.depthwise_conv = ConvModule(
-            in_channels,
-            in_channels,
-            kernel_size,
-            stride=stride,
-            padding=padding,
-            dilation=dilation,
-            groups=in_channels,
-            norm_cfg=dw_norm_cfg,  # type: ignore
-            act_cfg=dw_act_cfg,  # type: ignore
-            **kwargs)
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.norm(x)
+        x = self.activate(x)
+        return x
 
-        self.pointwise_conv = ConvModule(
-            in_channels,
-            out_channels,
-            1,
-            norm_cfg=pw_norm_cfg,  # type: ignore
-            act_cfg=pw_act_cfg,  # type: ignore
-            **kwargs)
+
+class DepthwiseSeparableConvModule(nn.Module):
+    """Depthwise separable convolution module.
+    See https://arxiv.org/pdf/1704.04861.pdf for details.
+    """
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 kernel_size,
+                 stride=1,
+                 padding=0,
+                ):
+        super().__init__()
+        self.depthwise_conv = ConvModule(in_channels, in_channels, kernel_size,
+            stride=stride, padding=padding, groups=in_channels)
+        self.pointwise_conv = ConvModule(in_channels, out_channels, 1)
 
     def forward(self, x):
         x = self.depthwise_conv(x)
@@ -109,31 +78,15 @@ class SPPBottleneck(nn.Module):
                  in_channels,
                  out_channels,
                  kernel_sizes=(5, 9, 13),
-                 conv_cfg=None,
-                 norm_cfg=dict(type='BN', momentum=0.03, eps=0.001),
-                 act_cfg=dict(type='Swish'),
                 ):
         super().__init__()
         mid_channels = in_channels // 2
-        self.conv1 = ConvModule(
-            in_channels,
-            mid_channels,
-            1,
-            stride=1,
-            conv_cfg=conv_cfg,
-            norm_cfg=norm_cfg,
-            act_cfg=act_cfg)
+        self.conv1 = ConvModule(in_channels, mid_channels, 1, stride=1)
         self.poolings = nn.ModuleList([
             nn.MaxPool2d(kernel_size=ks, stride=1, padding=ks // 2) for ks in kernel_sizes
         ])
         conv2_channels = mid_channels * (len(kernel_sizes) + 1)
-        self.conv2 = ConvModule(
-            conv2_channels,
-            out_channels,
-            1,
-            conv_cfg=conv_cfg,
-            norm_cfg=norm_cfg,
-            act_cfg=act_cfg)
+        self.conv2 = ConvModule(conv2_channels, out_channels, 1)
 
     def forward(self, x):
         x = self.conv1(x)
@@ -170,34 +123,17 @@ class CSPNeXtBlock(nn.Module):
                  expansion: float = 0.5,
                  add_identity: bool = True,
                  kernel_size: int = 5,
-                 conv_cfg = None,
-                 norm_cfg = dict(type='BN', momentum=0.03, eps=0.001),
-                 act_cfg = dict(type='SiLU'),
                 ):
         super().__init__()
         hidden_channels = int(out_channels * expansion)
-        self.conv1 = ConvModule(
-            in_channels,
-            hidden_channels,
-            3,
-            stride=1,
-            padding=1,
-            norm_cfg=norm_cfg,
-            act_cfg=act_cfg)
+        self.conv1 = ConvModule(in_channels, hidden_channels, 3,
+            stride=1, padding=1)
         self.conv2 = DepthwiseSeparableConvModule(
-            hidden_channels,
-            out_channels,
-            kernel_size,
-            stride=1,
-            padding=kernel_size // 2,
-            conv_cfg=conv_cfg,
-            norm_cfg=norm_cfg,
-            act_cfg=act_cfg)
-        self.add_identity = \
-            add_identity and in_channels == out_channels
+            hidden_channels, out_channels, kernel_size,
+            stride=1, padding=kernel_size // 2)
+        self.add_identity = add_identity and in_channels == out_channels # True or False
 
     def forward(self, x):
-        """Forward function."""
         identity = x
         out = self.conv1(x)
         out = self.conv2(out)
@@ -218,45 +154,17 @@ class CSPLayer(nn.Module):
                  add_identity: bool = True,
                  use_cspnext_block: bool = True,
                  channel_attention: bool = False,
-                 conv_cfg = None,
-                 norm_cfg = None,
-                 act_cfg = None,
                 ):
         super().__init__()
         block = CSPNeXtBlock
         mid_channels = int(out_channels * expand_ratio)
         self.channel_attention = channel_attention
-        self.main_conv = ConvModule(
-            in_channels,
-            mid_channels,
-            1,
-            conv_cfg=conv_cfg,
-            norm_cfg=norm_cfg,
-            act_cfg=act_cfg)
-        self.short_conv = ConvModule(
-            in_channels,
-            mid_channels,
-            1,
-            conv_cfg=conv_cfg,
-            norm_cfg=norm_cfg,
-            act_cfg=act_cfg)
-        self.final_conv = ConvModule(
-            2 * mid_channels,
-            out_channels,
-            1,
-            conv_cfg=conv_cfg,
-            norm_cfg=norm_cfg,
-            act_cfg=act_cfg)
+        self.main_conv = ConvModule(in_channels, mid_channels, 1)
+        self.short_conv = ConvModule(in_channels, mid_channels, 1)
+        self.final_conv = ConvModule(2 * mid_channels, out_channels, 1)
 
         self.blocks = nn.Sequential(*[
-            block(
-                mid_channels,
-                mid_channels,
-                1.0,
-                add_identity,
-                conv_cfg=conv_cfg,
-                norm_cfg=norm_cfg,
-                act_cfg=act_cfg) for _ in range(num_blocks)
+            block(mid_channels, mid_channels, 1.0, add_identity) for _ in range(num_blocks)
         ])
         if channel_attention:
             self.attention = ChannelAttention(2 * mid_channels)
@@ -276,20 +184,7 @@ class CSPLayer(nn.Module):
 
 class CSPNeXt(nn.Module):
     """CSPNeXt backbone used in RTMDet.
-
-    Args:
-        arch (str): Architecture of CSPNeXt, from {P5, P6}.
-            Defaults to P5.
-        out_indices (Sequence[int]): Output from which stages.
-            Defaults to (2, 3, 4).
-        conv_cfg (:obj:`ConfigDict` or dict, optional): Config dict for
-            convolution layer. Defaults to None.
-        norm_cfg (:obj:`ConfigDict` or dict): Dictionary to construct and
-            config norm layer. Defaults to dict(type='BN', requires_grad=True).
-        act_cfg (:obj:`ConfigDict` or dict): Config dict for activation layer.
-            Defaults to dict(type='SiLU').
     """
-    # From left to right:
     # in_channels, out_channels, num_blocks, add_identity, use_spp
     arch_settings = {
         'P5': [[64, 128, 3, True, False], [128, 256, 6, True, False],
@@ -307,9 +202,6 @@ class CSPNeXt(nn.Module):
         expand_ratio=0.5,
         spp_kernel_sizes=(5, 9, 13),
         channel_attention=True,
-        conv_cfg = None,
-        norm_cfg = {'type': 'SyncBN'},
-        act_cfg = {'type': 'SiLU'},
     ):
         super().__init__()
         arch_setting = self.arch_settings[arch]
@@ -322,30 +214,19 @@ class CSPNeXt(nn.Module):
 
         self.out_indices = out_indices # (4,)
         self.stem = nn.Sequential(
-            ConvModule(
-                3,
-                int(arch_setting[0][0] * widen_factor // 2),
-                3,
-                padding=1,
-                stride=2,
-                norm_cfg=norm_cfg, # {'type': 'SyncBN'}
-                act_cfg=act_cfg), # {'type': 'SiLU'}
+            ConvModule(3, int(arch_setting[0][0] * widen_factor // 2), 3,
+                padding=1, stride=2),
             ConvModule(
                 int(arch_setting[0][0] * widen_factor // 2),
                 int(arch_setting[0][0] * widen_factor // 2),
                 3,
-                padding=1,
-                stride=1,
-                norm_cfg=norm_cfg, # {'type': 'SyncBN'}
-                act_cfg=act_cfg),
+                padding=1, stride=1),
             ConvModule(
                 int(arch_setting[0][0] * widen_factor // 2),
                 int(arch_setting[0][0] * widen_factor),
                 3,
-                padding=1,
-                stride=1,
-                norm_cfg=norm_cfg, # {'type': 'SyncBN'}
-                act_cfg=act_cfg)) # {'type': 'SiLU'}
+                padding=1, stride=1),
+            )
         self.layers = ['stem']
 
         for i, (in_channels, out_channels, num_blocks, add_identity,
@@ -354,49 +235,15 @@ class CSPNeXt(nn.Module):
             out_channels = int(out_channels * widen_factor)
             num_blocks = max(round(num_blocks * deepen_factor), 1)
             stage = []
-            conv_layer = ConvModule(
-                in_channels,
-                out_channels,
-                3,
-                stride=2,
-                padding=1,
-                conv_cfg=conv_cfg, # None
-                norm_cfg=norm_cfg, # {'type': 'SyncBN'}
-                act_cfg=act_cfg) # {'type': 'SiLU'}
-            # (Pdb) conv_layer
-            # ConvModule(
-            #   (conv): Conv2d(512, 1024, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
-            #   (bn): SyncBatchNorm(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
-            #   (activate): SiLU(inplace=True)
-            # )
+            conv_layer = ConvModule(in_channels, out_channels, 3, stride=2, padding=1)
             stage.append(conv_layer)
             if use_spp: # True
                 spp = SPPBottleneck(
                     out_channels,
                     out_channels,
                     kernel_sizes=spp_kernel_sizes,
-                    conv_cfg=conv_cfg, # None
-                    norm_cfg=norm_cfg,
-                    act_cfg=act_cfg)
+                    )
                 stage.append(spp)
-                # (Pdb) spp
-                # SPPBottleneck(
-                #   (conv1): ConvModule(
-                #     (conv): Conv2d(1024, 512, kernel_size=(1, 1), stride=(1, 1), bias=False)
-                #     (bn): SyncBatchNorm(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
-                #     (activate): SiLU(inplace=True)
-                #   )
-                #   (poolings): ModuleList(
-                #     (0): MaxPool2d(kernel_size=5, stride=1, padding=2, dilation=1, ceil_mode=False)
-                #     (1): MaxPool2d(kernel_size=9, stride=1, padding=4, dilation=1, ceil_mode=False)
-                #     (2): MaxPool2d(kernel_size=13, stride=1, padding=6, dilation=1, ceil_mode=False)
-                #   )
-                #   (conv2): ConvModule(
-                #     (conv): Conv2d(2048, 1024, kernel_size=(1, 1), stride=(1, 1), bias=False)
-                #     (bn): SyncBatchNorm(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
-                #     (activate): SiLU(inplace=True)
-                #   )
-                # )
             csp_layer = CSPLayer(
                 out_channels,
                 out_channels,
@@ -405,14 +252,12 @@ class CSPNeXt(nn.Module):
                 use_cspnext_block=True,
                 expand_ratio=expand_ratio,
                 channel_attention=channel_attention,
-                conv_cfg=conv_cfg, # None
-                norm_cfg=norm_cfg,
-                act_cfg=act_cfg)
+                )
             stage.append(csp_layer)
             self.add_module(f'stage{i + 1}', nn.Sequential(*stage))
             self.layers.append(f'stage{i + 1}')
 
-    def forward(self, x: Tuple[torch.Tensor, ...]) -> Tuple[torch.Tensor, ...]:
+    def forward(self, x) -> Tuple[torch.Tensor, ...]:
         # tensor [x] size: [1, 3, 384, 288] , min: -2.1179039478302 , max: 2.552854061126709
 
         outs = []
@@ -430,4 +275,3 @@ class CSPNeXt(nn.Module):
 if __name__ == '__main__':
     model = CSPNeXt()
     print(model)
-    
