@@ -19,17 +19,71 @@ import torch
 import todos
 from torchvision.transforms import ToTensor, ToPILImage
 from .dwpose import DWPose
+from .mmpose import KEYPOINTS_COLOR, LINK_COLOR, POSE_SKELETON
 
 import pdb
 
 
-def draw_lines(tensor, lines):
+def draw_points(tensor, points):
+    B, C, H, W = tensor.size()
+
     image = ToPILImage()(tensor.squeeze(0))
     draw = ImageDraw.Draw(image)
+    points = points.cpu()
 
-    for line in lines:
-        x1, y1, x2, y2 = line
-        draw.line(((x1, y1), (x2, y2)), fill="red", width=1)
+    X = []
+    Y = []
+    V = []
+    for point in points:
+        x = int(point[0].item())
+        y = int(point[1].item())
+        s = float(point[2].item())
+
+        X.append(x)
+        Y.append(y)
+        if x < 0 or x >= W or y < 0 or y >= H or s < 0.1:
+            V.append(False)
+        else:
+            V.append(True)
+
+    # Draw points
+    for i, v in enumerate(V):
+        if v:
+            color = KEYPOINTS_COLOR[i]
+            x = X[i]
+            y = Y[i]
+            draw.ellipse(((x, y), (x + 2, y + 2)), fill=tuple(color), width=1)
+
+
+    # Draw links
+    for i, sk in enumerate(POSE_SKELETON):
+        p1 = sk[0]
+        p2 = sk[1]
+        if not (V[p1] and V[p2]):
+            continue
+
+        color = LINK_COLOR[i]
+        x1 = X[p1]
+        y1 = Y[p1]
+        x2 = X[p2]
+        y2 = Y[p2]
+        draw.line(((x1, y1), (x2, y2)), fill=tuple(color), width=1)
+
+
+
+
+    # for point in points:
+    #     x = int(point[0].item())
+    #     y = int(point[1].item())
+    #     s = float(point[2].item())
+
+    #     if x < 0 or x >= W or y < 0 or y >= H or s < 0.1:
+    #         continue
+
+    #     print(x, y, s)
+
+    #     # x1, y1, x2, y2 = line
+    #     # draw.line(((x1, y1), (x2, y2)), fill="red", width=1)
 
     image = ToTensor()(image)
 
@@ -88,13 +142,15 @@ def predict(input_files, output_dir):
         input_backup = input_image.clone()
 
         with torch.no_grad():
-            output_tensor = model(input_image)
+            output_points = model(input_image)
 
         output_file = f"{output_dir}/{os.path.basename(filename)}"
 
-        # output_tensor = draw_lines(input_image, output_tensor.cpu())
-        # todos.data.save_tensor([input_backup, output_tensor], output_file)
-        todos.data.save_tensor([input_backup], output_file)
+        output_image =  draw_points(input_backup, output_points[0])
+
+        # output_points = points(input_image, output_points.cpu())
+        todos.data.save_tensor([input_backup, output_image], output_file)
+        # todos.data.save_tensor([output_points], output_file)
 
     progress_bar.close()
 
