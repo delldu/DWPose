@@ -22,7 +22,7 @@ from mmengine.structures import InstanceData
 from mmengine.utils import mkdir_or_exist
 
 from mmpose.apis.inference import dataset_meta_from_config
-from mmpose.structures import PoseDataSample, split_instances
+from mmpose.structures import PoseDataSample #, split_instances
 
 InstanceList = List[InstanceData]
 InputType = Union[str, np.ndarray]
@@ -414,9 +414,9 @@ class BaseMMPoseInferencer(BaseInferencer):
 
         result_dict['visualization'] = visualization
         for pred in preds:
-            if not return_datasample:
-                # convert datasamples to list of instance predictions
-                pred = split_instances(pred.pred_instances)
+            # if not return_datasample:
+            #     # convert datasamples to list of instance predictions
+            #     pred = split_instances(pred.pred_instances)
             result_dict['predictions'].append(pred)
 
         if pred_out_dir != '':

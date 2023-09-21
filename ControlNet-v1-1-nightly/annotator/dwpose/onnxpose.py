@@ -3,6 +3,7 @@ from typing import List, Tuple
 import cv2
 import numpy as np
 import onnxruntime as ort
+import pdb
 
 def preprocess(
     img: np.ndarray, out_bbox, input_size: Tuple[int, int] = (192, 256)
@@ -59,6 +60,8 @@ def inference(sess: ort.InferenceSession, img: np.ndarray) -> np.ndarray:
     Returns:
         outputs (np.ndarray): Output of RTMPose model.
     """
+    pdb.set_trace()
+
     all_out = []
     # build input
     for i in range(len(img)):

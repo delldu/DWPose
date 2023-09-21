@@ -14,7 +14,7 @@ from mmpose.registry import VISUALIZERS
 from mmpose.structures import PoseDataSample
 from .opencv_backend_visualizer import OpencvBackendVisualizer
 from .simcc_vis import SimCCVisualizer
-
+import pdb
 
 def _get_adaptive_scales(areas: np.ndarray,
                          min_area: int = 800,
@@ -123,6 +123,20 @@ class PoseLocalVisualizer(OpencvBackendVisualizer):
             vis_backends=vis_backends,
             save_dir=save_dir,
             backend=backend)
+        # name = 'visualizer'
+        # image = None
+        # vis_backends = [{'type': 'LocalVisBackend', 'save_dir': None}]
+        # save_dir = None
+        # bbox_color = 'green'
+        # kpt_color = 'red'
+        # link_color = None
+        # text_color = (255, 255, 255)
+        # skeleton = None
+        # line_width = 1
+        # radius = 1
+        # show_keypoint_weight = False
+        # backend = 'opencv'
+        # alpha = 0.8
 
         self.bbox_color = bbox_color
         self.kpt_color = kpt_color
@@ -137,6 +151,7 @@ class PoseLocalVisualizer(OpencvBackendVisualizer):
         # `PoseLocalVisualizer().set_dataset_meta(xxx)`,
         # it will override the default value.
         self.dataset_meta = {}
+        # pdb.set_trace()
 
     def set_dataset_meta(self,
                          dataset_meta: Dict,
@@ -164,6 +179,12 @@ class PoseLocalVisualizer(OpencvBackendVisualizer):
         # it should be converted to a dict at these times
         if self.dataset_meta is None:
             self.dataset_meta = {}
+
+        # self.kpt_color.shape -- (133, 3)
+        # self.link_color.shape -- (65, 3)
+        # len(self.skeleton) -- 65
+        # xxxx5555
+
 
     def _draw_instances_bbox(self, image: np.ndarray,
                              instances: InstanceData) -> np.ndarray:
@@ -309,7 +330,7 @@ class PoseLocalVisualizer(OpencvBackendVisualizer):
                     if self.link_color is None or isinstance(
                             self.link_color, str):
                         link_color = [self.link_color] * len(self.skeleton)
-                    elif len(self.link_color) == len(self.skeleton):
+                    elif len(self.link_color) == len(self.skeleton): # True
                         link_color = self.link_color
                     else:
                         raise ValueError(

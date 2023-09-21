@@ -69,22 +69,6 @@ def draw_points(tensor, points):
         y2 = Y[p2]
         draw.line(((x1, y1), (x2, y2)), fill=tuple(color), width=1)
 
-
-
-
-    # for point in points:
-    #     x = int(point[0].item())
-    #     y = int(point[1].item())
-    #     s = float(point[2].item())
-
-    #     if x < 0 or x >= W or y < 0 or y >= H or s < 0.1:
-    #         continue
-
-    #     print(x, y, s)
-
-    #     # x1, y1, x2, y2 = line
-    #     # draw.line(((x1, y1), (x2, y2)), fill="red", width=1)
-
     image = ToTensor()(image)
 
     return image.unsqueeze(0)
@@ -95,11 +79,17 @@ def create_model():
     Create model
     """
 
-    model = DWPose()
+    model_version = "l384x288"
+    # model_version = "m256x192"
+
+    model = DWPose(version=model_version)
+
     device = todos.model.get_device()
     model = model.to(device)
     model.eval()
-    print(f"Running model on {device} ...")
+    print(f"Running model {model_version} on {device} ...")
+
+    # print(model)
 
     return model, device
 
@@ -116,10 +106,10 @@ def get_model():
     # torch::jit::getProfilingMode() = false;
     # torch::jit::setTensorExprFuserEnabled(false);
 
-    # model = torch.jit.script(model)
-    # todos.data.mkdir("output")
-    # if not os.path.exists("output/DWPose.torch"):
-    #     model.save("output/DWPose.torch")
+    model = torch.jit.script(model)
+    todos.data.mkdir("output")
+    if not os.path.exists("output/DWPose.torch"):
+        model.save("output/DWPose.torch")
 
     return model, device
 
@@ -145,12 +135,8 @@ def predict(input_files, output_dir):
             output_points = model(input_image)
 
         output_file = f"{output_dir}/{os.path.basename(filename)}"
-
         output_image =  draw_points(input_backup, output_points[0])
-
-        # output_points = points(input_image, output_points.cpu())
         todos.data.save_tensor([input_backup, output_image], output_file)
-        # todos.data.save_tensor([output_points], output_file)
 
     progress_bar.close()
 

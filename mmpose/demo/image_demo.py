@@ -6,7 +6,8 @@ from mmcv.image import imread
 from mmpose.apis import inference_topdown, init_model
 from mmpose.registry import VISUALIZERS
 from mmpose.structures import merge_data_samples
-
+import todos
+import pdb
 
 def parse_args():
     parser = ArgumentParser()
@@ -39,7 +40,7 @@ def parse_args():
     parser.add_argument(
         '--radius',
         type=int,
-        default=3,
+        default=1,
         help='Keypoint radius for visualization')
     parser.add_argument(
         '--thickness',
@@ -72,6 +73,11 @@ def main():
         device=args.device,
         cfg_options=cfg_options)
 
+    # print(model)
+
+    # model -- TopdownPoseEstimator(...), backbone -- CSPNeXt(), head -- RTMCCHead
+    # model.data_preprocessor -- PoseDataPreprocessor()
+
     # init visualizer
     model.cfg.visualizer.radius = args.radius
     model.cfg.visualizer.alpha = args.alpha
@@ -87,6 +93,9 @@ def main():
 
     # show the results
     img = imread(args.img, channel_order='rgb')
+    # img.shape -- (425, 640, 3)
+
+
     visualizer.add_datasample(
         'result',
         img,

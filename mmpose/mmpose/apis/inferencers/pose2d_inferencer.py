@@ -31,7 +31,7 @@ PredType = Union[InstanceData, InstanceList]
 ImgType = Union[np.ndarray, Sequence[np.ndarray]]
 ConfigType = Union[Config, ConfigDict]
 ResType = Union[Dict, List[Dict], InstanceData, List[InstanceData]]
-
+import pdb
 
 @INFERENCERS.register_module(name='pose-estimation')
 @INFERENCERS.register_module()
@@ -91,6 +91,7 @@ class Pose2DInferencer(BaseMMPoseInferencer):
         init_default_scope(scope)
         super().__init__(
             model=model, weights=weights, device=device, scope=scope)
+        pdb.set_trace()
         self.model = revert_sync_batchnorm(self.model)
 
         # assign dataset metainfo to self.visualizer

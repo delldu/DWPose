@@ -16,28 +16,28 @@ class BaseKeypointCodec(metaclass=ABCMeta):
 
     # pass additional encoding arguments to the `encode` method, beyond the
     # mandatory `keypoints` and `keypoints_visible` arguments.
-    auxiliary_encode_keys = set()
+    # auxiliary_encode_keys = set()
 
-    @abstractmethod
-    def encode(self,
-               keypoints: np.ndarray,
-               keypoints_visible: Optional[np.ndarray] = None) -> dict:
-        """Encode keypoints.
+    # @abstractmethod
+    # def encode(self,
+    #            keypoints: np.ndarray,
+    #            keypoints_visible: Optional[np.ndarray] = None) -> dict:
+    #     """Encode keypoints.
 
-        Note:
+    #     Note:
 
-            - instance number: N
-            - keypoint number: K
-            - keypoint dimension: D
+    #         - instance number: N
+    #         - keypoint number: K
+    #         - keypoint dimension: D
 
-        Args:
-            keypoints (np.ndarray): Keypoint coordinates in shape (N, K, D)
-            keypoints_visible (np.ndarray): Keypoint visibility in shape
-                (N, K, D)
+    #     Args:
+    #         keypoints (np.ndarray): Keypoint coordinates in shape (N, K, D)
+    #         keypoints_visible (np.ndarray): Keypoint visibility in shape
+    #             (N, K, D)
 
-        Returns:
-            dict: Encoded items.
-        """
+    #     Returns:
+    #         dict: Encoded items.
+    #     """
 
     @abstractmethod
     def decode(self, encoded: Any) -> Tuple[np.ndarray, np.ndarray]:

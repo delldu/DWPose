@@ -17,7 +17,8 @@ from mmpose.datasets.datasets.utils import parse_pose_metainfo
 from mmpose.models.builder import build_pose_estimator
 from mmpose.structures import PoseDataSample
 from mmpose.structures.bbox import bbox_xywh2xyxy
-
+import todos
+import pdb
 
 def dataset_meta_from_config(config: Config,
                              dataset_mode: str = 'train') -> Optional[dict]:
@@ -97,10 +98,13 @@ def init_model(config: Union[str, Path, Config],
 
     # register all modules in mmpose into the registries
     scope = config.get('default_scope', 'mmpose')
-    if scope is not None:
+    if scope is not None: # True for scope == 'mmpose'
         init_default_scope(scope)
 
     model = build_pose_estimator(config.model)
+    # pdb.set_trace() # xxxx8888
+    # model -- PoseDataPreprocessor()
+
     model = revert_sync_batchnorm(model)
     # get dataset_meta in this priority: checkpoint > config > default (COCO)
     dataset_meta = None
@@ -112,10 +116,10 @@ def init_model(config: Union[str, Path, Config],
             # checkpoint from mmpose 1.x
             dataset_meta = ckpt['meta']['dataset_meta']
 
-    if dataset_meta is None:
+    if dataset_meta is None: # False
         dataset_meta = dataset_meta_from_config(config, dataset_mode='train')
 
-    if dataset_meta is None:
+    if dataset_meta is None: # False
         warnings.simplefilter('once')
         warnings.warn('Can not load dataset_meta from the checkpoint or the '
                       'model config. Use COCO metainfo by default.')
@@ -152,17 +156,26 @@ def inference_topdown(model: nn.Module,
         ``data_sample.pred_instances.keypoint_scores``.
     """
     scope = model.cfg.get('default_scope', 'mmpose')
-    if scope is not None:
+    if scope is not None: # True for scope === 'mmpose'
         init_default_scope(scope)
     pipeline = Compose(model.cfg.test_dataloader.dataset.pipeline)
+    # Compose(
+    #     LoadImage(ignore_empty=False, to_float32=False, color_type='color', 
+    #       imdecode_backend='cv2', backend_args={'backend': 'local'})
+    #     GetBBoxCenterScale(padding=1.25)
+    #     TopdownAffine(input_size=(288, 384), use_udp=False)
+    #     PackPoseInputs(meta_keys=('id', 'img_id', 'img_path', 'category_id', 
+    #        'crowd_index', 'ori_shape', 'img_shape', 'input_size', 'input_center', 
+    #        'input_scale', 'flip', 'flip_direction', 'flip_indices', 'raw_ann_info'))
 
-    if bboxes is None or len(bboxes) == 0:
+    if bboxes is None or len(bboxes) == 0: # True
         # get bbox from the image size
-        if isinstance(img, str):
+        # img -- 'dwpose.png'
+        if isinstance(img, str): # True
             w, h = Image.open(img).size
         else:
             h, w = img.shape[:2]
-
+        # ==> pp h, w -- (425, 640)
         bboxes = np.array([[0, 0, w, h]], dtype=np.float32)
     else:
         if isinstance(bboxes, list):
@@ -174,10 +187,12 @@ def inference_topdown(model: nn.Module,
         if bbox_format == 'xywh':
             bboxes = bbox_xywh2xyxy(bboxes)
 
+    # ==> pdb.set_trace(), xxxx1111
+
     # construct batch data samples
     data_list = []
     for bbox in bboxes:
-        if isinstance(img, str):
+        if isinstance(img, str): # True
             data_info = dict(img_path=img)
         else:
             data_info = dict(img=img)
@@ -190,13 +205,49 @@ def inference_topdown(model: nn.Module,
         # collate data list into a batch, which is a dict with following keys:
         # batch['inputs']: a list of input images
         # batch['data_samples']: a list of :obj:`PoseDataSample`
+
         batch = pseudo_collate(data_list)
+
+        # What's test_step ? comes from mmengine/model/base_model/base_model.py 
+        # data = self.data_preprocessor(data, False)
+        # model.forward(data, mode='predict')  # type: ignore
+        # ...
+        # model.data_preprocessor -- PoseDataPreprocessor()
+        # model.predict -- TopdownPoseEstimator.predict
+        
+        # Image.fromarray(batch['inputs'][0].permute(1, 2, 0).numpy()).show() # BGR Format !!!
+        # batch['inputs'][0].size() -- torch.Size([3, 384, 288]), min -- 0, max -- 250
+        # ================================== xxxx8888 =================================
         with torch.no_grad():
-            results = model.test_step(batch)
+            results = model.test_step(batch) # BaseModel.test_step of TopdownPoseEstimator
     else:
         results = []
 
-    return results
+    # len(results) -- 1
+    # todos.debug.output_var("results[0].pred_instances.keypoints", 
+    #     results[0].pred_instances.keypoints)
+    # array [results[0].pred_instances.keypoints] shape: (1, 133, 2) ,
+    #       min: 72.22222757339478 , max: 497.7777777777777
+
+    # results[0].pred_instances.keypoints ---
+    # array([[[364.44444444,  83.33333826],
+    #         [372.77777778,  75.00000525],
+    #         [361.66666667,  76.38889408],
+    #         [386.66666667,  81.94444942],
+    #         [357.5       ,  84.7222271 ],
+    #         [406.11111111, 118.05555916],
+    #         [363.05555556, 125.00000334],
+    #         [435.27777778, 158.3333354 ],
+
+    # todos.debug.output_var("results[0].pred_instances.keypoint_scores", 
+    #     results[0].pred_instances.keypoint_scores)
+    # array [results[0].pred_instances.keypoint_scores] shape: (1, 133) , 
+    #     min: 0.47906744 , max: 0.8998748    
+    # results[0].pred_instances.keypoint_scores
+    #     array([[0.79527617, 0.802758  , 0.81034577, 0.75599384, 0.7128651 ,
+    #     0.68816304, 0.72258997, 0.48709562, 0.6233173 , 0.51813126,
+
+    return results # PoseDataSample
 
 
 def inference_bottomup(model: nn.Module, img: Union[np.ndarray, str]):

@@ -18,6 +18,7 @@ from mmpose.registry import KEYPOINT_CODECS, TRANSFORMS
 from mmpose.structures.bbox import bbox_xyxy2cs, flip_bbox
 from mmpose.structures.keypoint import flip_keypoints
 from mmpose.utils.typing import MultiConfig
+import pdb
 
 try:
     import albumentations
@@ -64,7 +65,8 @@ class GetBBoxCenterScale(BaseTransform):
         Returns:
             dict: The result dict.
         """
-        if 'bbox_center' in results and 'bbox_scale' in results:
+        # ===> pdb.set_trace()
+        if 'bbox_center' in results and 'bbox_scale' in results: # False
             rank, _ = get_dist_info()
             if rank == 0:
                 warnings.warn('Use the existing "bbox_center" and "bbox_scale"'
@@ -72,8 +74,8 @@ class GetBBoxCenterScale(BaseTransform):
             results['bbox_scale'] *= self.padding
 
         else:
-            bbox = results['bbox']
-            center, scale = bbox_xyxy2cs(bbox, padding=self.padding)
+            bbox = results['bbox'] # array([[  0.,   0., 640., 425.]], dtype=float32)
+            center, scale = bbox_xyxy2cs(bbox, padding=self.padding) # self.padding -- 1.25
 
             results['bbox_center'] = center
             results['bbox_scale'] = scale

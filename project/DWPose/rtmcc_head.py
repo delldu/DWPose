@@ -5,9 +5,7 @@ import math
 import torch
 import torch.nn as nn
 from  torch.nn import functional as F
-# import numpy as np
-
-from typing import Tuple
+from typing import Tuple, List
 import todos
 import pdb
 
@@ -37,18 +35,7 @@ def flip_vectors(x_labels, y_labels):
 
 def get_simcc_maximum(simcc_x, simcc_y) -> Tuple[torch.Tensor, torch.Tensor]:
     """Get maximum response location and value from simcc representations.
-    Args:
-        simcc_x: x-axis SimCC in shape (N, K, Wx)
-        simcc_y: y-axis SimCC in shape (N, K, Wy)
-    Returns:
-        - locs: locations of maximum heatmap responses in shape (N, K, 2)
-        - vals: values of maximum heatmap responses in shape (N, K)
     """
-    # xxxx5555
-
-    # todos.debug.output_var("simcc_x", simcc_x)
-    # todos.debug.output_var("simcc_y", simcc_y)
-
     N, K, Wx = simcc_x.size() # (1, 133, 576)
     simcc_x = simcc_x.reshape(N * K, -1)
     simcc_y = simcc_y.reshape(N * K, -1)
@@ -56,10 +43,6 @@ def get_simcc_maximum(simcc_x, simcc_y) -> Tuple[torch.Tensor, torch.Tensor]:
     x_vals, x_locs = torch.max(simcc_x, dim=1) # size() -- [133]
     y_vals, y_locs = torch.max(simcc_y, dim=1) # size() -- [133]
     locs = torch.stack((x_locs, y_locs), dim=1) # [133, 2]
-    # --------------------------------------------------------------
-
-    # max_val_x = torch.max(simcc_x, dim=1)
-    # max_val_y = torch.max(simcc_y, dim=1)
 
     mask = x_vals > y_vals
     x_vals[mask] = y_vals[mask]
@@ -68,23 +51,6 @@ def get_simcc_maximum(simcc_x, simcc_y) -> Tuple[torch.Tensor, torch.Tensor]:
 
     locs = locs.reshape(N, K, 2)
     vals = vals.reshape(N, K)
-
-    # todos.debug.output_var("locs", locs)
-    # todos.debug.output_var("vals", vals)
-
-    # Bad ---
-    # tensor [simcc_x] size: [1, 133, 576] , min: -0.5505505204200745 , max: 0.8369803428649902
-    # tensor [simcc_y] size: [1, 133, 768] , min: -0.39678260684013367 , max: 0.9399464130401611
-    # tensor [locs] size: [1, 133, 2] , min: 87 , max: 690
-    # tensor [vals] size: [1, 133] , min: 0.2764616310596466 , max: 0.8369803428649902
-
-
-    # OK ----------
-    # array [simcc_x] shape: (1, 133, 576) , min: -0.41311845 , max: 0.9175705
-    # array [simcc_y] shape: (1, 133, 768) , min: -0.3252464 , max: 0.90258455
-    # array [locs] shape: (1, 133, 2) , min: 265.0 , max: 509.0
-    # array [vals] shape: (1, 133) , min: 0.47906744 , max: 0.8998748
-
 
     return locs, vals
 
@@ -231,8 +197,14 @@ class RTMCCHead(nn.Module):
         in_featuremap_size=(9, 12),
         simcc_split_ratio=2.0,
         final_layer_kernel_size=7,
+        version="l384x288"
     ):
         super().__init__()
+
+        if version == "m256x192": # HxW
+            in_channels = 768
+            input_size = (192, 256) # W, H
+            in_featuremap_size = (6, 8)
 
         gau_cfg = {'hidden_dims': 256, 's': 128, 'expansion_factor': 2, }
 
@@ -271,15 +243,11 @@ class RTMCCHead(nn.Module):
         self.cls_x = nn.Linear(gau_cfg['hidden_dims'], W, bias=False)
         self.cls_y = nn.Linear(gau_cfg['hidden_dims'], H, bias=False)
 
-    def forward(self, feats: Tuple[torch.Tensor]):
+    def forward(self, feats: List[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
         # TTA: flip test -> feats = [orig, flipped]
         assert isinstance(feats, list) and len(feats) == 2
-        # xxxx3333
+
         f1, f2 = feats
-        todos.debug.output_var("head input1: ", f1)
-        todos.debug.output_var("head input2: ", f1)
-
-
         pred_x, pred_y = self.forward_x(f1)
 
         pred_x_flip, pred_y_flip = self.forward_x(f2)
@@ -288,19 +256,7 @@ class RTMCCHead(nn.Module):
         batch_pred_x = (pred_x + pred_x_flip) * 0.5
         batch_pred_y = (pred_y + pred_y_flip) * 0.5
 
-        # todos.debug.output_var("batch_pred_x", batch_pred_x)
-        # todos.debug.output_var("batch_pred_y", batch_pred_y)
-        # tensor [batch_pred_x] size: [1, 133, 576] , min: -0.5505505204200745 , max: 0.8369803428649902
-        # tensor [batch_pred_y] size: [1, 133, 768] , min: -0.39678260684013367 , max: 0.9399464130401611
-
-        todos.debug.output_var("head midle output1: ", batch_pred_x)
-        todos.debug.output_var("head midle output2: ", batch_pred_y)
-
-
         keypoints, scores = self.decoder(batch_pred_x, batch_pred_y)
-
-        todos.debug.output_var("head output1: ", keypoints)
-        todos.debug.output_var("head output2: ", scores)
 
         return keypoints, scores
 

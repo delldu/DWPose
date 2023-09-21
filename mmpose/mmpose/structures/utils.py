@@ -10,7 +10,7 @@ from mmengine.utils import is_list_of
 
 from .bbox.transforms import get_warp_matrix
 from .pose_data_sample import PoseDataSample
-
+import pdb
 
 def merge_data_samples(data_samples: List[PoseDataSample]) -> PoseDataSample:
     """Merge the given data samples into a single data sample.
@@ -38,16 +38,15 @@ def merge_data_samples(data_samples: List[PoseDataSample]) -> PoseDataSample:
 
     merged = PoseDataSample(metainfo=data_samples[0].metainfo)
 
-    if 'gt_instances' in data_samples[0]:
+    if 'gt_instances' in data_samples[0]: # True
         merged.gt_instances = InstanceData.cat(
             [d.gt_instances for d in data_samples])
 
-    if 'pred_instances' in data_samples[0]:
+    if 'pred_instances' in data_samples[0]: # True
         merged.pred_instances = InstanceData.cat(
             [d.pred_instances for d in data_samples])
 
-    if 'pred_fields' in data_samples[0] and 'heatmaps' in data_samples[
-            0].pred_fields:
+    if 'pred_fields' in data_samples[0] and 'heatmaps' in data_samples[0].pred_fields: # False
         reverted_heatmaps = [
             revert_heatmap(data_sample.pred_fields.heatmaps,
                            data_sample.gt_instances.bbox_centers,
@@ -61,8 +60,7 @@ def merge_data_samples(data_samples: List[PoseDataSample]) -> PoseDataSample:
         pred_fields.set_data(dict(heatmaps=merged_heatmaps))
         merged.pred_fields = pred_fields
 
-    if 'gt_fields' in data_samples[0] and 'heatmaps' in data_samples[
-            0].gt_fields:
+    if 'gt_fields' in data_samples[0] and 'heatmaps' in data_samples[0].gt_fields: # False
         reverted_heatmaps = [
             revert_heatmap(data_sample.gt_fields.heatmaps,
                            data_sample.gt_instances.bbox_centers,

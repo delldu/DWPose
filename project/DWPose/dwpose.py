@@ -14,11 +14,19 @@ import pdb
 
 
 class DWPose(nn.Module):
-    def __init__(self):
+    def __init__(self, version="l384x288"):
         super(DWPose, self).__init__()
-        self.backbone = CSPNeXt()
-        self.head = RTMCCHead()
+        self.version = version
+
+        self.backbone = CSPNeXt(version=version)
+        self.head = RTMCCHead(version=version)
         self.normal = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        if version == "l384x288":
+            self.std_h = 384
+            self.std_w = 288
+        else:
+            self.std_h = 256
+            self.std_w = 192
 
         self.load_weights()
 
@@ -43,16 +51,16 @@ class DWPose(nn.Module):
 
         return output
 
-    def image_transform(self, x, std_h:int=384, std_w:int=288) -> Tuple[torch.Tensor,
-            int, int, int]:
+    def image_transform(self, x) -> Tuple[torch.Tensor, float, int, int]:
         B, C, H, W = x.size()
-        s = min(std_h/(1.25*H), std_w/(1.25 * W))
+        s = min(self.std_h/(1.25*H), self.std_w/(1.25 * W))
         # s = min(std_h*1.0/H, std_w*1.0/W)/1.25
+
         NH = int(s * H)
         NW = int(s * W)
-        tx = (std_w - NW) // 2
-        ty = (std_h - NH) // 2
-        padding = (tx, ty, (std_w - NW) - tx, (std_h - NH) - ty) # left, top, right and bottom
+        tx = (self.std_w - NW) // 2
+        ty = (self.std_h - NH) // 2
+        padding = (tx, ty, (self.std_w - NW) - tx, (self.std_h - NH) - ty) # left, top, right and bottom
         y = F.interpolate(x, size=(NH, NW), mode="bilinear", align_corners=True)
         y = T.functional.pad(y, padding, fill=0.0)
 
@@ -68,7 +76,11 @@ class DWPose(nn.Module):
         keypoints[:, :, 1:2] = keypoints[:, :, 1:2] / s
 
 
-    def load_weights(self, model_path="models/DWPose.pth"):
+    def load_weights(self, model_path="models/DWPose-l.pth"):
+        if self.version == "l384x288":
+            model_path = "models/DWPose-l.pth"
+        else:
+            model_path = "models/DWPose-m.pth"
         cdir = os.path.dirname(__file__)
         checkpoint = model_path if cdir == "" else cdir + "/" + model_path
 

@@ -201,8 +201,15 @@ class CSPNeXt(nn.Module):
         expand_ratio=0.5,
         spp_kernel_sizes=(5, 9, 13),
         channel_attention=True,
+        version="l384x288"
     ):
         super().__init__()
+
+        if version == "m256x192":
+            deepen_factor = 0.67
+            widen_factor = 0.75
+
+
         arch_setting = self.arch_settings[arch]
         # arch_setting -- 
         #     [[64, 128, 3, True, False], 
@@ -257,9 +264,6 @@ class CSPNeXt(nn.Module):
             self.layers.append(f'stage{i + 1}')
 
     def forward(self, x):
-        # xxxx3333
-        todos.debug.output_var("cspnext input:", x)
-
         # tensor [x] size: [1, 3, 384, 288] , min: -2.1179039478302 , max: 2.552854061126709
 
         # outs = []
@@ -278,8 +282,6 @@ class CSPNeXt(nn.Module):
         x = self.stage2(x)
         x = self.stage3(x)
         x = self.stage4(x)
-
-        todos.debug.output_var("cspnext output", x)
 
         return x
 

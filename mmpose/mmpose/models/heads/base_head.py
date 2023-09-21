@@ -9,7 +9,7 @@ from torch import Tensor
 from mmpose.utils.tensor_utils import to_numpy
 from mmpose.utils.typing import (Features, InstanceList, OptConfigType,
                                  OptSampleList, Predictions)
-
+import pdb
 
 class BaseHead(BaseModule, metaclass=ABCMeta):
     """Base head. A subclass should override :meth:`predict` and :meth:`loss`.
@@ -19,23 +19,23 @@ class BaseHead(BaseModule, metaclass=ABCMeta):
             Defaults to None.
     """
 
-    @abstractmethod
-    def forward(self, feats: Tuple[Tensor]):
-        """Forward the network."""
+    # @abstractmethod
+    # def forward(self, feats: Tuple[Tensor]):
+    #     """Forward the network."""
 
-    @abstractmethod
-    def predict(self,
-                feats: Features,
-                batch_data_samples: OptSampleList,
-                test_cfg: OptConfigType = {}) -> Predictions:
-        """Predict results from features."""
+    # @abstractmethod
+    # def predict(self,
+    #             feats: Features,
+    #             batch_data_samples: OptSampleList,
+    #             test_cfg: OptConfigType = {}) -> Predictions:
+    #     """Predict results from features."""
 
-    @abstractmethod
-    def loss(self,
-             feats: Tuple[Tensor],
-             batch_data_samples: OptSampleList,
-             train_cfg: OptConfigType = {}) -> dict:
-        """Calculate losses from a batch of inputs and data samples."""
+    # @abstractmethod
+    # def loss(self,
+    #          feats: Tuple[Tensor],
+    #          batch_data_samples: OptSampleList,
+    #          train_cfg: OptConfigType = {}) -> dict:
+    #     """Calculate losses from a batch of inputs and data samples."""
 
     def decode(self, batch_outputs: Union[Tensor,
                                           Tuple[Tensor]]) -> InstanceList:
@@ -61,7 +61,7 @@ class BaseHead(BaseModule, metaclass=ABCMeta):
                 'Please set the decoder configs in the init parameters to '
                 'enable head methods `head.predict()` and `head.decode()`')
 
-        if self.decoder.support_batch_decoding:
+        if self.decoder.support_batch_decoding: # False
             batch_keypoints, batch_scores = _pack_and_call(
                 batch_outputs, self.decoder.batch_decode)
 
@@ -70,8 +70,7 @@ class BaseHead(BaseModule, metaclass=ABCMeta):
             batch_keypoints = []
             batch_scores = []
             for outputs in batch_output_np:
-                keypoints, scores = _pack_and_call(outputs,
-                                                   self.decoder.decode)
+                keypoints, scores = _pack_and_call(outputs, self.decoder.decode) # xxxx8888
                 batch_keypoints.append(keypoints)
                 batch_scores.append(scores)
 
@@ -79,5 +78,6 @@ class BaseHead(BaseModule, metaclass=ABCMeta):
             InstanceData(keypoints=keypoints, keypoint_scores=scores)
             for keypoints, scores in zip(batch_keypoints, batch_scores)
         ]
+        # ==> pdb.set_trace()
 
         return preds

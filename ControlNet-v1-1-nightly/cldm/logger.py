@@ -5,7 +5,7 @@ import torch
 import torchvision
 from PIL import Image
 from pytorch_lightning.callbacks import Callback
-from pytorch_lightning.utilities.distributed import rank_zero_only
+# from pytorch_lightning.utilities.distributed import rank_zero_only
 
 
 class ImageLogger(Callback):
@@ -24,7 +24,7 @@ class ImageLogger(Callback):
         self.log_images_kwargs = log_images_kwargs if log_images_kwargs else {}
         self.log_first_step = log_first_step
 
-    @rank_zero_only
+    # @rank_zero_only
     def log_local(self, save_dir, split, images, global_step, current_epoch, batch_idx):
         root = os.path.join(save_dir, "image_log", split)
         for k in images:

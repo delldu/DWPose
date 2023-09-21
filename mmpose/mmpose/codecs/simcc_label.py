@@ -8,7 +8,9 @@ from mmpose.codecs.utils import get_simcc_maximum
 from mmpose.codecs.utils.refinement import refine_simcc_dark
 from mmpose.registry import KEYPOINT_CODECS
 from .base import BaseKeypointCodec
+import todos
 
+import pdb
 
 @KEYPOINT_CODECS.register_module()
 class SimCCLabel(BaseKeypointCodec):
@@ -61,79 +63,91 @@ class SimCCLabel(BaseKeypointCodec):
                  normalize: bool = True,
                  use_dark: bool = False) -> None:
         super().__init__()
+        # input_size = (288, 384)
+        # smoothing_type = 'gaussian'
+        # sigma = (6.0, 6.93)
+        # simcc_split_ratio = 2.0
+        # label_smooth_weight = 0.0
+        # normalize = False
+        # use_dark = False
 
-        self.input_size = input_size
-        self.smoothing_type = smoothing_type
+        # self.input_size = input_size
+        # self.smoothing_type = smoothing_type
         self.simcc_split_ratio = simcc_split_ratio
-        self.label_smooth_weight = label_smooth_weight
-        self.normalize = normalize
-        self.use_dark = use_dark
+        # self.label_smooth_weight = label_smooth_weight
+        # self.normalize = normalize
+        # self.use_dark = use_dark
 
-        if isinstance(sigma, (float, int)):
-            self.sigma = np.array([sigma, sigma])
-        else:
-            self.sigma = np.array(sigma)
+        # if isinstance(sigma, (float, int)): # False
+        #     self.sigma = np.array([sigma, sigma])
+        # else:
+        #     self.sigma = np.array(sigma)
 
-        if self.smoothing_type not in {'gaussian', 'standard'}:
-            raise ValueError(
-                f'{self.__class__.__name__} got invalid `smoothing_type` value'
-                f'{self.smoothing_type}. Should be one of '
-                '{"gaussian", "standard"}')
+        # if self.smoothing_type not in {'gaussian', 'standard'}:
+        #     raise ValueError(
+        #         f'{self.__class__.__name__} got invalid `smoothing_type` value'
+        #         f'{self.smoothing_type}. Should be one of '
+        #         '{"gaussian", "standard"}')
 
-        if self.smoothing_type == 'gaussian' and self.label_smooth_weight > 0:
-            raise ValueError('Attribute `label_smooth_weight` is only '
-                             'used for `standard` mode.')
+        # if self.smoothing_type == 'gaussian' and self.label_smooth_weight > 0:
+        #     raise ValueError('Attribute `label_smooth_weight` is only '
+        #                      'used for `standard` mode.')
 
-        if self.label_smooth_weight < 0.0 or self.label_smooth_weight > 1.0:
-            raise ValueError('`label_smooth_weight` should be in range [0, 1]')
+        # if self.label_smooth_weight < 0.0 or self.label_smooth_weight > 1.0:
+        #     raise ValueError('`label_smooth_weight` should be in range [0, 1]')
 
-    def encode(self,
-               keypoints: np.ndarray,
-               keypoints_visible: Optional[np.ndarray] = None) -> dict:
-        """Encoding keypoints into SimCC labels. Note that the original
-        keypoint coordinates should be in the input image space.
 
-        Args:
-            keypoints (np.ndarray): Keypoint coordinates in shape (N, K, D)
-            keypoints_visible (np.ndarray): Keypoint visibilities in shape
-                (N, K)
+    # def encode(self,
+    #            keypoints: np.ndarray,
+    #            keypoints_visible: Optional[np.ndarray] = None) -> dict:
+    #     """Encoding keypoints into SimCC labels. Note that the original
+    #     keypoint coordinates should be in the input image space.
 
-        Returns:
-            dict:
-            - keypoint_x_labels (np.ndarray): The generated SimCC label for
-                x-axis.
-                The label shape is (N, K, Wx) if ``smoothing_type=='gaussian'``
-                and (N, K) if `smoothing_type=='standard'``, where
-                :math:`Wx=w*simcc_split_ratio`
-            - keypoint_y_labels (np.ndarray): The generated SimCC label for
-                y-axis.
-                The label shape is (N, K, Wy) if ``smoothing_type=='gaussian'``
-                and (N, K) if `smoothing_type=='standard'``, where
-                :math:`Wy=h*simcc_split_ratio`
-            - keypoint_weights (np.ndarray): The target weights in shape
-                (N, K)
-        """
-        if keypoints_visible is None:
-            keypoints_visible = np.ones(keypoints.shape[:2], dtype=np.float32)
+    #     Args:
+    #         keypoints (np.ndarray): Keypoint coordinates in shape (N, K, D)
+    #         keypoints_visible (np.ndarray): Keypoint visibilities in shape
+    #             (N, K)
 
-        if self.smoothing_type == 'gaussian':
-            x_labels, y_labels, keypoint_weights = self._generate_gaussian(
-                keypoints, keypoints_visible)
-        elif self.smoothing_type == 'standard':
-            x_labels, y_labels, keypoint_weights = self._generate_standard(
-                keypoints, keypoints_visible)
-        else:
-            raise ValueError(
-                f'{self.__class__.__name__} got invalid `smoothing_type` value'
-                f'{self.smoothing_type}. Should be one of '
-                '{"gaussian", "standard"}')
+    #     Returns:
+    #         dict:
+    #         - keypoint_x_labels (np.ndarray): The generated SimCC label for
+    #             x-axis.
+    #             The label shape is (N, K, Wx) if ``smoothing_type=='gaussian'``
+    #             and (N, K) if `smoothing_type=='standard'``, where
+    #             :math:`Wx=w*simcc_split_ratio`
+    #         - keypoint_y_labels (np.ndarray): The generated SimCC label for
+    #             y-axis.
+    #             The label shape is (N, K, Wy) if ``smoothing_type=='gaussian'``
+    #             and (N, K) if `smoothing_type=='standard'``, where
+    #             :math:`Wy=h*simcc_split_ratio`
+    #         - keypoint_weights (np.ndarray): The target weights in shape
+    #             (N, K)
+    #     """
+    #     pdb.set_trace()
 
-        encoded = dict(
-            keypoint_x_labels=x_labels,
-            keypoint_y_labels=y_labels,
-            keypoint_weights=keypoint_weights)
+    #     if keypoints_visible is None:
+    #         keypoints_visible = np.ones(keypoints.shape[:2], dtype=np.float32)
 
-        return encoded
+    #     if self.smoothing_type == 'gaussian':
+    #         x_labels, y_labels, keypoint_weights = self._generate_gaussian(
+    #             keypoints, keypoints_visible)
+    #     elif self.smoothing_type == 'standard':
+    #         x_labels, y_labels, keypoint_weights = self._generate_standard(
+    #             keypoints, keypoints_visible)
+    #     else:
+    #         raise ValueError(
+    #             f'{self.__class__.__name__} got invalid `smoothing_type` value'
+    #             f'{self.smoothing_type}. Should be one of '
+    #             '{"gaussian", "standard"}')
+
+    #     encoded = dict(
+    #         keypoint_x_labels=x_labels,
+    #         keypoint_y_labels=y_labels,
+    #         keypoint_weights=keypoint_weights)
+
+    #     pdb.set_trace()
+
+    #     return encoded
 
     def decode(self, simcc_x: np.ndarray,
                simcc_y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -152,135 +166,150 @@ class SimCCLabel(BaseKeypointCodec):
             - socres (np.ndarray): The keypoint scores in shape (N, K).
                 It usually represents the confidence of the keypoint prediction
         """
-
+        # array [simcc_x] shape: (1, 133, 576) , min: -0.41311845 , max: 0.9175705
+        # array [simcc_y] shape: (1, 133, 768) , min: -0.3252464 , max: 0.90258455
         keypoints, scores = get_simcc_maximum(simcc_x, simcc_y)
+        # array [keypoints] shape: (1, 133, 2) , min: 265.0 , max: 509.0
+        # array [scores] shape: (1, 133) , min: 0.47906744 , max: 0.8998748
+
+        # todos.debug.output_var("keypoints", keypoints)
+        # todos.debug.output_var("scores", scores)
 
         # Unsqueeze the instance dimension for single-instance results
-        if keypoints.ndim == 2:
-            keypoints = keypoints[None, :]
-            scores = scores[None, :]
+        # if keypoints.ndim == 2: # False
+        #     keypoints = keypoints[None, :]
+        #     scores = scores[None, :]
 
-        if self.use_dark:
-            x_blur = int((self.sigma[0] * 20 - 7) // 3)
-            y_blur = int((self.sigma[1] * 20 - 7) // 3)
-            x_blur -= int((x_blur % 2) == 0)
-            y_blur -= int((y_blur % 2) == 0)
-            keypoints[:, :, 0] = refine_simcc_dark(keypoints[:, :, 0], simcc_x,
-                                                   x_blur)
-            keypoints[:, :, 1] = refine_simcc_dark(keypoints[:, :, 1], simcc_y,
-                                                   y_blur)
+        # if self.use_dark: # False
+        #     x_blur = int((self.sigma[0] * 20 - 7) // 3)
+        #     y_blur = int((self.sigma[1] * 20 - 7) // 3)
+        #     x_blur -= int((x_blur % 2) == 0)
+        #     y_blur -= int((y_blur % 2) == 0)
+        #     keypoints[:, :, 0] = refine_simcc_dark(keypoints[:, :, 0], simcc_x,
+        #                                            x_blur)
+        #     keypoints[:, :, 1] = refine_simcc_dark(keypoints[:, :, 1], simcc_y,
+        #                                            y_blur)
 
-        keypoints /= self.simcc_split_ratio
+        keypoints /= self.simcc_split_ratio # self.simcc_split_ratio -- 2.0
 
         return keypoints, scores
 
-    def _map_coordinates(
-        self,
-        keypoints: np.ndarray,
-        keypoints_visible: Optional[np.ndarray] = None
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """Mapping keypoint coordinates into SimCC space."""
+    # def _map_coordinates(
+    #     self,
+    #     keypoints: np.ndarray,
+    #     keypoints_visible: Optional[np.ndarray] = None
+    # ) -> Tuple[np.ndarray, np.ndarray]:
+    #     """Mapping keypoint coordinates into SimCC space."""
 
-        keypoints_split = keypoints.copy()
-        keypoints_split = np.around(keypoints_split * self.simcc_split_ratio)
-        keypoints_split = keypoints_split.astype(np.int64)
-        keypoint_weights = keypoints_visible.copy()
+    #     pdb.set_trace()
 
-        return keypoints_split, keypoint_weights
+    #     keypoints_split = keypoints.copy()
+    #     keypoints_split = np.around(keypoints_split * self.simcc_split_ratio)
+    #     keypoints_split = keypoints_split.astype(np.int64)
+    #     keypoint_weights = keypoints_visible.copy()
 
-    def _generate_standard(
-        self,
-        keypoints: np.ndarray,
-        keypoints_visible: Optional[np.ndarray] = None
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Encoding keypoints into SimCC labels with Standard Label Smoothing
-        strategy.
+    #     return keypoints_split, keypoint_weights
 
-        Labels will be one-hot vectors if self.label_smooth_weight==0.0
-        """
+    # def _generate_standard(
+    #     self,
+    #     keypoints: np.ndarray,
+    #     keypoints_visible: Optional[np.ndarray] = None
+    # ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    #     """Encoding keypoints into SimCC labels with Standard Label Smoothing
+    #     strategy.
 
-        N, K, _ = keypoints.shape
-        w, h = self.input_size
-        W = np.around(w * self.simcc_split_ratio).astype(int)
-        H = np.around(h * self.simcc_split_ratio).astype(int)
+    #     Labels will be one-hot vectors if self.label_smooth_weight==0.0
+    #     """
+    #     pdb.set_trace()
 
-        keypoints_split, keypoint_weights = self._map_coordinates(
-            keypoints, keypoints_visible)
+    #     N, K, _ = keypoints.shape
+    #     w, h = self.input_size
+    #     W = np.around(w * self.simcc_split_ratio).astype(int)
+    #     H = np.around(h * self.simcc_split_ratio).astype(int)
 
-        target_x = np.zeros((N, K, W), dtype=np.float32)
-        target_y = np.zeros((N, K, H), dtype=np.float32)
+    #     keypoints_split, keypoint_weights = self._map_coordinates(
+    #         keypoints, keypoints_visible)
 
-        for n, k in product(range(N), range(K)):
-            # skip unlabled keypoints
-            if keypoints_visible[n, k] < 0.5:
-                continue
+    #     target_x = np.zeros((N, K, W), dtype=np.float32)
+    #     target_y = np.zeros((N, K, H), dtype=np.float32)
 
-            # get center coordinates
-            mu_x, mu_y = keypoints_split[n, k].astype(np.int64)
+    #     for n, k in product(range(N), range(K)):
+    #         # skip unlabled keypoints
+    #         if keypoints_visible[n, k] < 0.5:
+    #             continue
 
-            # detect abnormal coords and assign the weight 0
-            if mu_x >= W or mu_y >= H or mu_x < 0 or mu_y < 0:
-                keypoint_weights[n, k] = 0
-                continue
+    #         # get center coordinates
+    #         mu_x, mu_y = keypoints_split[n, k].astype(np.int64)
 
-            if self.label_smooth_weight > 0:
-                target_x[n, k] = self.label_smooth_weight / (W - 1)
-                target_y[n, k] = self.label_smooth_weight / (H - 1)
+    #         # detect abnormal coords and assign the weight 0
+    #         if mu_x >= W or mu_y >= H or mu_x < 0 or mu_y < 0:
+    #             keypoint_weights[n, k] = 0
+    #             continue
 
-            target_x[n, k, mu_x] = 1.0 - self.label_smooth_weight
-            target_y[n, k, mu_y] = 1.0 - self.label_smooth_weight
+    #         if self.label_smooth_weight > 0: # False
+    #             target_x[n, k] = self.label_smooth_weight / (W - 1)
+    #             target_y[n, k] = self.label_smooth_weight / (H - 1)
 
-        return target_x, target_y, keypoint_weights
+    #         target_x[n, k, mu_x] = 1.0 - self.label_smooth_weight
+    #         target_y[n, k, mu_y] = 1.0 - self.label_smooth_weight
 
-    def _generate_gaussian(
-        self,
-        keypoints: np.ndarray,
-        keypoints_visible: Optional[np.ndarray] = None
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Encoding keypoints into SimCC labels with Gaussian Label Smoothing
-        strategy."""
+    #     return target_x, target_y, keypoint_weights
 
-        N, K, _ = keypoints.shape
-        w, h = self.input_size
-        W = np.around(w * self.simcc_split_ratio).astype(int)
-        H = np.around(h * self.simcc_split_ratio).astype(int)
+    #     pdb.set_trace()
 
-        keypoints_split, keypoint_weights = self._map_coordinates(
-            keypoints, keypoints_visible)
+    # def _generate_gaussian(
+    #     self,
+    #     keypoints: np.ndarray,
+    #     keypoints_visible: Optional[np.ndarray] = None
+    # ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    #     """Encoding keypoints into SimCC labels with Gaussian Label Smoothing
+    #     strategy."""
 
-        target_x = np.zeros((N, K, W), dtype=np.float32)
-        target_y = np.zeros((N, K, H), dtype=np.float32)
+    #     pdb.set_trace()
 
-        # 3-sigma rule
-        radius = self.sigma * 3
+    #     N, K, _ = keypoints.shape
+    #     w, h = self.input_size
+    #     W = np.around(w * self.simcc_split_ratio).astype(int)
+    #     H = np.around(h * self.simcc_split_ratio).astype(int)
 
-        # xy grid
-        x = np.arange(0, W, 1, dtype=np.float32)
-        y = np.arange(0, H, 1, dtype=np.float32)
+    #     keypoints_split, keypoint_weights = self._map_coordinates(
+    #         keypoints, keypoints_visible)
 
-        for n, k in product(range(N), range(K)):
-            # skip unlabled keypoints
-            if keypoints_visible[n, k] < 0.5:
-                continue
+    #     target_x = np.zeros((N, K, W), dtype=np.float32)
+    #     target_y = np.zeros((N, K, H), dtype=np.float32)
 
-            mu = keypoints_split[n, k]
+    #     # 3-sigma rule
+    #     radius = self.sigma * 3
 
-            # check that the gaussian has in-bounds part
-            left, top = mu - radius
-            right, bottom = mu + radius + 1
+    #     # xy grid
+    #     x = np.arange(0, W, 1, dtype=np.float32)
+    #     y = np.arange(0, H, 1, dtype=np.float32)
 
-            if left >= W or top >= H or right < 0 or bottom < 0:
-                keypoint_weights[n, k] = 0
-                continue
+    #     for n, k in product(range(N), range(K)):
+    #         # skip unlabled keypoints
+    #         if keypoints_visible[n, k] < 0.5:
+    #             continue
 
-            mu_x, mu_y = mu
+    #         mu = keypoints_split[n, k]
 
-            target_x[n, k] = np.exp(-((x - mu_x)**2) / (2 * self.sigma[0]**2))
-            target_y[n, k] = np.exp(-((y - mu_y)**2) / (2 * self.sigma[1]**2))
+    #         # check that the gaussian has in-bounds part
+    #         left, top = mu - radius
+    #         right, bottom = mu + radius + 1
 
-        if self.normalize:
-            norm_value = self.sigma * np.sqrt(np.pi * 2)
-            target_x /= norm_value[0]
-            target_y /= norm_value[1]
+    #         if left >= W or top >= H or right < 0 or bottom < 0:
+    #             keypoint_weights[n, k] = 0
+    #             continue
 
-        return target_x, target_y, keypoint_weights
+    #         mu_x, mu_y = mu
+
+    #         target_x[n, k] = np.exp(-((x - mu_x)**2) / (2 * self.sigma[0]**2))
+    #         target_y[n, k] = np.exp(-((y - mu_y)**2) / (2 * self.sigma[1]**2))
+
+    #     if self.normalize: # False
+    #         norm_value = self.sigma * np.sqrt(np.pi * 2)
+    #         target_x /= norm_value[0]
+    #         target_y /= norm_value[1]
+
+    #     pdb.set_trace()
+
+    #     return target_x, target_y, keypoint_weights

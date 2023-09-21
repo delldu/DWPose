@@ -7,7 +7,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import Tensor
-
+import todos
+import pdb
 
 def get_simcc_normalized(batch_pred_simcc, sigma=None):
     """Normalize the predicted SimCC.
@@ -59,6 +60,12 @@ def get_simcc_maximum(simcc_x: np.ndarray,
         - vals (np.ndarray): values of maximum heatmap responses in shape
             (K,) or (N, K)
     """
+    # xxxx5555
+
+    # todos.debug.output_var("simcc_x", simcc_x)
+    # todos.debug.output_var("simcc_y", simcc_y)
+    # array [simcc_x] shape: (1, 133, 576) , min: -0.41311845 , max: 0.9175705
+    # array [simcc_y] shape: (1, 133, 768) , min: -0.3252464 , max: 0.90258455
 
     assert isinstance(simcc_x, np.ndarray), ('simcc_x should be numpy.ndarray')
     assert isinstance(simcc_y, np.ndarray), ('simcc_y should be numpy.ndarray')
@@ -69,7 +76,8 @@ def get_simcc_maximum(simcc_x: np.ndarray,
     assert simcc_x.ndim == simcc_y.ndim, (
         f'{simcc_x.shape} != {simcc_y.shape}')
 
-    if simcc_x.ndim == 3:
+    # simcc_x.shape -- (1, 133, 576)
+    if simcc_x.ndim == 3: # True ???
         N, K, Wx = simcc_x.shape
         simcc_x = simcc_x.reshape(N * K, -1)
         simcc_y = simcc_y.reshape(N * K, -1)
@@ -87,9 +95,14 @@ def get_simcc_maximum(simcc_x: np.ndarray,
     vals = max_val_x
     locs[vals <= 0.] = -1
 
-    if N:
+    if N: # True
         locs = locs.reshape(N, K, 2)
         vals = vals.reshape(N, K)
+
+    # todos.debug.output_var("locs", locs)
+    # todos.debug.output_var("vals", vals)
+    # array [locs] shape: (1, 133, 2) , min: 265.0 , max: 509.0
+    # array [vals] shape: (1, 133) , min: 0.47906744 , max: 0.8998748
 
     return locs, vals
 

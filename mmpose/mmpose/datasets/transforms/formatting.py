@@ -9,7 +9,7 @@ from mmengine.utils import is_seq_of
 
 from mmpose.registry import TRANSFORMS
 from mmpose.structures import MultilevelPixelData, PoseDataSample
-
+import pdb
 
 def image_to_tensor(img: Union[np.ndarray,
                                Sequence[np.ndarray]]) -> torch.torch.Tensor:
@@ -169,8 +169,8 @@ class PackPoseInputs(BaseTransform):
                 sample.
         """
         # Pack image(s) for 2d pose estimation
-        if 'img' in results:
-            img = results['img']
+        if 'img' in results: # True
+            img = results['img'] # results['img'].shape -- (384, 288, 3), min -- 0, max -- 250
             inputs_tensor = image_to_tensor(img)
         # Pack keypoints for 3d pose-lifting
         elif 'lifting_target' in results and 'keypoints' in results:
@@ -194,7 +194,7 @@ class PackPoseInputs(BaseTransform):
 
         # pack `transformed_keypoints` for visualizing data transform
         # and augmentation results
-        if self.pack_transformed and 'transformed_keypoints' in results:
+        if self.pack_transformed and 'transformed_keypoints' in results: # False
             gt_instances.set_field(results['transformed_keypoints'],
                                    'transformed_keypoints')
         if self.pack_transformed and \
@@ -207,7 +207,7 @@ class PackPoseInputs(BaseTransform):
         # pack instance labels
         gt_instance_labels = InstanceData()
         for key, packed_key in self.label_mapping_table.items():
-            if key in results:
+            if key in results: # False
                 # For pose-lifting, store only target-related fields
                 if 'lifting_target_label' in results and key in {
                         'keypoint_labels', 'keypoint_weights',
@@ -229,7 +229,7 @@ class PackPoseInputs(BaseTransform):
         # pack fields
         gt_fields = None
         for key, packed_key in self.field_mapping_table.items():
-            if key in results:
+            if key in results: # False
                 if isinstance(results[key], list):
                     if gt_fields is None:
                         gt_fields = MultilevelPixelData()
@@ -247,7 +247,7 @@ class PackPoseInputs(BaseTransform):
 
                 gt_fields.set_field(results[key], packed_key)
 
-        if gt_fields:
+        if gt_fields: # None
             data_sample.gt_fields = gt_fields.to_tensor()
 
         img_meta = {k: results[k] for k in self.meta_keys if k in results}

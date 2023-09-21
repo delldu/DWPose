@@ -8,7 +8,7 @@ from mmengine import is_seq_of
 
 from mmpose.registry import TRANSFORMS
 from mmpose.structures.bbox import get_udp_warp_matrix, get_warp_matrix
-
+import pdb
 
 @TRANSFORMS.register_module()
 class TopdownAffine(BaseTransform):
@@ -63,7 +63,7 @@ class TopdownAffine(BaseTransform):
         Returns:
             np.darray: The reshaped bbox scales in (n, 2)
         """
-
+        # aspect_ratio -- 0.75 === 288/384
         w, h = np.hsplit(bbox_scale, [1])
         bbox_scale = np.where(w > h * aspect_ratio,
                               np.hstack([w, w / aspect_ratio]),
@@ -86,6 +86,9 @@ class TopdownAffine(BaseTransform):
         warp_size = (int(w), int(h))
 
         # reshape bbox to fixed aspect ratio
+        # results['bbox_scale'] -- array([[800., 531.25]], dtype=float32)
+        # image.size() * 1.25
+
         results['bbox_scale'] = self._fix_aspect_ratio(
             results['bbox_scale'], aspect_ratio=w / h)
 
@@ -101,23 +104,32 @@ class TopdownAffine(BaseTransform):
         else:
             rot = 0.
 
-        if self.use_udp:
+        if self.use_udp: # False
             warp_mat = get_udp_warp_matrix(
                 center, scale, rot, output_size=(w, h))
         else:
+            # pp w, h -- (288, 384)
+            # scale -- array([ 800.    , 1066.6666], dtype=float32)
+            # rot -- 0
             warp_mat = get_warp_matrix(center, scale, rot, output_size=(w, h))
 
-        if isinstance(results['img'], list):
+        if isinstance(results['img'], list): # False
             results['img'] = [
                 cv2.warpAffine(
                     img, warp_mat, warp_size, flags=cv2.INTER_LINEAR)
                 for img in results['img']
             ]
         else:
+            # warp_mat
+            # array([[  0.36,  -0.  ,  28.8 ],
+            #        [  0.  ,   0.36, 115.5 ]])
+            # results['img'].shape -- (425, 640, 3)
+            # warp_size -- (288, 384)
+
             results['img'] = cv2.warpAffine(
                 results['img'], warp_mat, warp_size, flags=cv2.INTER_LINEAR)
 
-        if results.get('keypoints', None) is not None:
+        if results.get('keypoints', None) is not None: # False
             transformed_keypoints = results['keypoints'].copy()
             # Only transform (x, y) coordinates
             transformed_keypoints[..., :2] = cv2.transform(
@@ -125,6 +137,17 @@ class TopdownAffine(BaseTransform):
             results['transformed_keypoints'] = transformed_keypoints
 
         results['input_size'] = (w, h)
+        # pdb.set_trace()
+        # import todos
+        # todos.debug.output_var("results", results)
+
+        # results.keys() -- 
+        # dict_keys(['img_path', 'bbox', 'bbox_score', 'dataset_name', 'num_keypoints', 
+        #     'keypoint_id2name', 'keypoint_name2id', 'upper_body_ids', 'lower_body_ids', 
+        #     'flip_indices', 'flip_pairs', 'keypoint_colors', 
+        #     'num_skeleton_links', 'skeleton_links', 'skeleton_link_colors', 
+        #     'dataset_keypoint_weights', 'sigmas', 'img', 'img_shape', 
+        #     'ori_shape', 'bbox_center', 'bbox_scale'])
 
         return results
 

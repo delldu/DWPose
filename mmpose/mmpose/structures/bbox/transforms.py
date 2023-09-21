@@ -4,7 +4,7 @@ from typing import Tuple
 
 import cv2
 import numpy as np
-
+import pdb
 
 def bbox_xyxy2xywh(bbox_xyxy: np.ndarray) -> np.ndarray:
     """Transform the bbox format from x1y1x2y2 to xywh.
@@ -63,9 +63,15 @@ def bbox_xyxy2cs(bbox: np.ndarray,
     if dim == 1:
         bbox = bbox[None, :]
 
+    # bbox -- array([[  0.,   0., 640., 425.]], dtype=float32)
+
     x1, y1, x2, y2 = np.hsplit(bbox, [1, 2, 3])
+    # x1, y1, x2, y2 --
+    # [array([[0.]], dtype=float32), array([[0.]], dtype=float32), 
+    # array([[640.]], dtype=float32), array([[425.]], dtype=float32)]
+
     center = np.hstack([x1 + x2, y1 + y2]) * 0.5
-    scale = np.hstack([x2 - x1, y2 - y1]) * padding
+    scale = np.hstack([x2 - x1, y2 - y1]) * padding #  padding -- 1.25
 
     if dim == 1:
         center = center[0]
@@ -295,6 +301,13 @@ def get_warp_matrix(center: np.ndarray,
     Returns:
         np.ndarray: A 2x3 transformation matrix
     """
+    # center = array([320. , 212.5], dtype=float32)
+    # scale = array([ 800.    , 1066.6666], dtype=float32) # 640 * 1.25 === 800 ???
+    # rot = 0.0
+    # output_size = (288, 384)
+    # shift = array([0., 0.])
+    # inv = False
+
     assert len(center) == 2
     assert len(scale) == 2
     assert len(output_size) == 2
@@ -319,7 +332,12 @@ def get_warp_matrix(center: np.ndarray,
     dst[1, :] = np.array([dst_w * 0.5, dst_h * 0.5]) + dst_dir
     dst[2, :] = _get_3rd_point(dst[0, :], dst[1, :])
 
-    if inv:
+    # (Pdb) dst
+    # array([[144., 192.],
+    #        [144.,  48.],
+    #        [  0.,  48.]], dtype=float32)
+
+    if inv: # False
         warp_mat = cv2.getAffineTransform(np.float32(dst), np.float32(src))
     else:
         warp_mat = cv2.getAffineTransform(np.float32(src), np.float32(dst))

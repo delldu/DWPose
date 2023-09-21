@@ -12,7 +12,8 @@ from mmpose.registry import MODELS
 from mmpose.utils.typing import (ConfigType, ForwardResults, OptConfigType,
                                  Optional, OptMultiConfig, OptSampleList,
                                  SampleList)
-
+import todos
+import pdb
 
 class BasePoseEstimator(BaseModel, metaclass=ABCMeta):
     """Base class for pose estimators.
@@ -42,9 +43,19 @@ class BasePoseEstimator(BaseModel, metaclass=ABCMeta):
                  metainfo: Optional[dict] = None):
         super().__init__(
             data_preprocessor=data_preprocessor, init_cfg=init_cfg)
-        self.metainfo = self._load_metainfo(metainfo)
+        # backbone = {'_scope_': 'mmdet', 'type': 'CSPNeXt', 'arch': 'P5', 'expand_ratio': 0.5, 'deepen_factor': 1.0, 'widen_factor': 1.0, 'out_indices': (4,), 'channel_attention': True, 'norm_cfg': {'type': 'SyncBN'}, 'act_cfg': {'type': 'SiLU'}, 'init_cfg': {'type': 'Pretrained', 'prefix': 'backbone.', 'checkpoint': 'https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/cspnext-l_udp-aic-coco_210e-256x192-273b7631_20230130.pth'}}
+        # neck = None
+        # head = {'type': 'RTMCCHead', 'in_channels': 1024, 'out_channels': 133, 'input_size': (288, 384), 'in_featuremap_size': (9, 12), 'simcc_split_ratio': 2.0, 'final_layer_kernel_size': 7, 'gau_cfg': {'hidden_dims': 256, 's': 128, 'expansion_factor': 2, 'dropout_rate': 0.0, 'drop_path': 0.0, 'act_fn': 'SiLU', 'use_rel_bias': False, 'pos_enc': False}, 'loss': {'type': 'KLDiscretLoss', 'use_target_weight': True, 'beta': 10.0, 'label_softmax': True}, 'decoder': {'type': 'SimCCLabel', 'input_size': (288, 384), 'sigma': (6.0, 6.93), 'simcc_split_ratio': 2.0, 'normalize': False, 'use_dark': False}}
+        # train_cfg = None
+        # test_cfg = {'flip_test': True, 'output_heatmaps': True}
+        # data_preprocessor = {'type': 'PoseDataPreprocessor', 'mean': [123.675, 116.28, 103.53], 'std': [58.395, 57.12, 57.375], 'bgr_to_rgb': True}
+        # init_cfg = None
+        # metainfo = None
 
-        self.backbone = MODELS.build(backbone)
+        
+        self.metainfo = self._load_metainfo(metainfo) # None
+
+        self.backbone = MODELS.build(backbone) # CSPNeXt(...)
 
         # the PR #2108 and #2126 modified the interface of neck and head.
         # The following function automatically detects outdated
@@ -52,17 +63,18 @@ class BasePoseEstimator(BaseModel, metaclass=ABCMeta):
         # clear and concise information on the changes made.
         neck, head = check_and_update_config(neck, head)
 
-        if neck is not None:
+        if neck is not None: # False
             self.neck = MODELS.build(neck)
 
-        if head is not None:
-            self.head = MODELS.build(head)
+        if head is not None: # True
+            self.head = MODELS.build(head) # RTMCCHead
 
         self.train_cfg = train_cfg if train_cfg else {}
         self.test_cfg = test_cfg if test_cfg else {}
 
         # Register the hook to automatically convert old version state dicts
         self._register_load_state_dict_pre_hook(self._load_state_dict_pre_hook)
+        # pdb.set_trace()
 
     @property
     def with_neck(self) -> bool:
@@ -130,15 +142,18 @@ class BasePoseEstimator(BaseModel, metaclass=ABCMeta):
             - If ``mode='loss'``, return a dict of tensor(s) which is the loss
                 function value
         """
+        # mode === 'predict'
+        # tensor [inputs] size: [1, 3, 384, 288] , min: -2.1179039478302 , max: 2.552854061126709
+
         if isinstance(inputs, list):
             inputs = torch.stack(inputs)
         if mode == 'loss':
-            return self.loss(inputs, data_samples)
-        elif mode == 'predict':
+            return None # self.loss(inputs, data_samples)
+        elif mode == 'predict': # True
             # use customed metainfo to override the default metainfo
-            if self.metainfo is not None:
-                for data_sample in data_samples:
-                    data_sample.set_metainfo(self.metainfo)
+            # if self.metainfo is not None: # False
+            #     for data_sample in data_samples:
+            #         data_sample.set_metainfo(self.metainfo)
             return self.predict(inputs, data_samples)
         elif mode == 'tensor':
             return self._forward(inputs)
@@ -146,34 +161,35 @@ class BasePoseEstimator(BaseModel, metaclass=ABCMeta):
             raise RuntimeError(f'Invalid mode "{mode}". '
                                'Only supports loss, predict and tensor mode.')
 
-    @abstractmethod
-    def loss(self, inputs: Tensor, data_samples: SampleList) -> dict:
-        """Calculate losses from a batch of inputs and data samples."""
+    # @abstractmethod
+    # def loss(self, inputs: Tensor, data_samples: SampleList) -> dict:
+    #     """Calculate losses from a batch of inputs and data samples."""
 
     @abstractmethod
     def predict(self, inputs: Tensor, data_samples: SampleList) -> SampleList:
         """Predict results from a batch of inputs and data samples with post-
         processing."""
 
-    def _forward(self,
-                 inputs: Tensor,
-                 data_samples: OptSampleList = None
-                 ) -> Union[Tensor, Tuple[Tensor]]:
-        """Network forward process. Usually includes backbone, neck and head
-        forward without any post-processing.
+    # def _forward(self,
+    #              inputs: Tensor,
+    #              data_samples: OptSampleList = None
+    #              ) -> Union[Tensor, Tuple[Tensor]]:
+    #     """Network forward process. Usually includes backbone, neck and head
+    #     forward without any post-processing.
 
-        Args:
-            inputs (Tensor): Inputs with shape (N, C, H, W).
+    #     Args:
+    #         inputs (Tensor): Inputs with shape (N, C, H, W).
 
-        Returns:
-            Union[Tensor | Tuple[Tensor]]: forward output of the network.
-        """
+    #     Returns:
+    #         Union[Tensor | Tuple[Tensor]]: forward output of the network.
+    #     """
+    #     pdb.set_trace()
+        
+    #     x = self.extract_feat(inputs)
+    #     if self.with_head:
+    #         x = self.head.forward(x)
 
-        x = self.extract_feat(inputs)
-        if self.with_head:
-            x = self.head.forward(x)
-
-        return x
+    #     return x
 
     def extract_feat(self, inputs: Tensor) -> Tuple[Tensor]:
         """Extract features.
@@ -186,8 +202,8 @@ class BasePoseEstimator(BaseModel, metaclass=ABCMeta):
             resolutions.
         """
         x = self.backbone(inputs)
-        if self.with_neck:
-            x = self.neck(x)
+        # if self.with_neck: # False
+        #     x = self.neck(x)
 
         return x
 
