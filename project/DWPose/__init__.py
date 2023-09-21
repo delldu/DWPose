@@ -78,18 +78,12 @@ def create_model():
     """
     Create model
     """
-
-    model_version = "l384x288"
-    # model_version = "m256x192"
-
-    model = DWPose(version=model_version)
+    model = DWPose()
 
     device = todos.model.get_device()
     model = model.to(device)
     model.eval()
-    print(f"Running model {model_version} on {device} ...")
-
-    # print(model)
+    print(f"Running model on {device} ...")
 
     return model, device
 

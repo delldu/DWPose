@@ -14,19 +14,16 @@ import pdb
 
 
 class DWPose(nn.Module):
-    def __init__(self, version="l384x288"):
+    def __init__(self):
         super(DWPose, self).__init__()
-        self.version = version
 
-        self.backbone = CSPNeXt(version=version)
-        self.head = RTMCCHead(version=version)
+        self.backbone = CSPNeXt()
+        self.head = RTMCCHead()
         self.normal = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        if version == "l384x288":
-            self.std_h = 384
-            self.std_w = 288
-        else:
-            self.std_h = 256
-            self.std_w = 192
+        self.std_h = 384
+        self.std_w = 288
+        # self.std_h = 256
+        # self.std_w = 192
 
         self.load_weights()
 
@@ -77,10 +74,7 @@ class DWPose(nn.Module):
 
 
     def load_weights(self, model_path="models/DWPose-l.pth"):
-        if self.version == "l384x288":
-            model_path = "models/DWPose-l.pth"
-        else:
-            model_path = "models/DWPose-m.pth"
+        # model_path = "models/DWPose-m.pth" # for m256x192
         cdir = os.path.dirname(__file__)
         checkpoint = model_path if cdir == "" else cdir + "/" + model_path
 

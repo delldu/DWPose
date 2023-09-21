@@ -201,13 +201,12 @@ class CSPNeXt(nn.Module):
         expand_ratio=0.5,
         spp_kernel_sizes=(5, 9, 13),
         channel_attention=True,
-        version="l384x288"
     ):
         super().__init__()
 
-        if version == "m256x192":
-            deepen_factor = 0.67
-            widen_factor = 0.75
+        # for "m256x192":
+        # deepen_factor = 0.67
+        # widen_factor = 0.75
 
 
         arch_setting = self.arch_settings[arch]

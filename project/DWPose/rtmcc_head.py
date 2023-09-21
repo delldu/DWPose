@@ -197,14 +197,12 @@ class RTMCCHead(nn.Module):
         in_featuremap_size=(9, 12),
         simcc_split_ratio=2.0,
         final_layer_kernel_size=7,
-        version="l384x288"
     ):
         super().__init__()
-
-        if version == "m256x192": # HxW
-            in_channels = 768
-            input_size = (192, 256) # W, H
-            in_featuremap_size = (6, 8)
+        # For "m256x192": # HxW
+        # in_channels = 768
+        # input_size = (192, 256) # W, H
+        # in_featuremap_size = (6, 8)
 
         gau_cfg = {'hidden_dims': 256, 's': 128, 'expansion_factor': 2, }
 
